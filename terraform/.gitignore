@@ -1,0 +1,17 @@
+# Terraform files
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Variable files with secrets
+terraform.tfvars
+*.auto.tfvars
+
+# Temporary files
+*.zip
+.DS_Store
+
+# IDE files
+.idea/
+.vscode/

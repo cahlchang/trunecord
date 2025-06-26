@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Music to Discord</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Musicord</h1>
+      <p class="subtitle">Stream your music to Discord voice channels</p>
+    </header>
+
+    <main>
+      <!-- Auth Section -->
+      <section id="auth-section" class="section">
+        <h2>Authentication</h2>
+        <div id="auth-status" class="status-box">
+          <p>Not authenticated</p>
+          <button id="auth-btn" class="btn btn-primary">Login with Discord</button>
+        </div>
+      </section>
+
+      <!-- Server Selection -->
+      <section id="server-section" class="section" style="display: none;">
+        <h2>Select Server & Channel</h2>
+        <div class="form-group">
+          <label for="guild-select">Server:</label>
+          <select id="guild-select" class="select">
+            <option value="">Select a server...</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="channel-select">Voice Channel:</label>
+          <select id="channel-select" class="select" disabled>
+            <option value="">Select a channel...</option>
+          </select>
+        </div>
+      </section>
+
+      <!-- Connection Status -->
+      <section id="connection-section" class="section" style="display: none;">
+        <h2>Connection</h2>
+        <div id="connection-status" class="status-box">
+          <div class="status-indicator" id="status-indicator"></div>
+          <p id="status-text">Disconnected</p>
+        </div>
+        <button id="connect-btn" class="btn btn-success">Connect to Discord</button>
+        
+        <!-- Test Audio Section -->
+        <div id="test-section" style="display: none; margin-top: 20px;">
+          <h3>Test Audio</h3>
+          <button id="test-audio-btn" class="btn btn-secondary">Send Test Audio</button>
+          <p id="test-status" style="margin-top: 10px; font-size: 14px; color: #666;"></p>
+        </div>
+      </section>
+
+      <!-- Streaming Sources -->
+      <section id="sources-section" class="section" style="display: none;">
+        <h2>Audio Sources</h2>
+        <div class="source-list">
+          <div class="source-item">
+            <div style="width: 48px; height: 48px; background-color: #FF0000; border-radius: 6px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
+              <span style="color: white; font-weight: bold;">YT</span>
+            </div>
+            <div class="source-info">
+              <h3>YouTube Music</h3>
+              <p class="source-status" id="yt-music-status">Extension not detected</p>
+            </div>
+          </div>
+          <!-- Future sources can be added here -->
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>Make sure the Chrome extension is installed and YouTube Music is open</p>
+    </footer>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
