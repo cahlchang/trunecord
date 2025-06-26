@@ -108,9 +108,11 @@ function insertButton() {
     return;
   }
   
-  // Find the middle controls section (with song info)
+  // Find the left controls and middle controls sections
+  const leftControls = playerBar.querySelector('.left-controls');
   const middleControls = playerBar.querySelector('.middle-controls');
-  if (!middleControls) {
+  
+  if (!leftControls || !middleControls) {
     setTimeout(insertButton, 1000);
     return;
   }
@@ -120,31 +122,12 @@ function insertButton() {
     return;
   }
   
-  // Create and insert the button between time and title
+  // Create the button
   discordButton = createDiscordButton();
   
-  // Look for the content info section that contains time and title
-  const contentInfo = middleControls.querySelector('.content-info-wrapper');
-  if (contentInfo) {
-    // Find the time element
-    const timeInfo = contentInfo.querySelector('.time-info, ytmusic-player-bar-time-info');
-    if (timeInfo && timeInfo.nextSibling) {
-      // Insert button after the time element
-      timeInfo.parentNode.insertBefore(discordButton, timeInfo.nextSibling);
-    } else {
-      // Fallback: insert at the beginning of content info
-      contentInfo.insertBefore(discordButton, contentInfo.firstChild);
-    }
-  } else {
-    // Secondary fallback: look for byline container
-    const bylineContainer = middleControls.querySelector('.byline-wrapper, .byline');
-    if (bylineContainer && bylineContainer.parentElement) {
-      bylineContainer.parentElement.insertBefore(discordButton, bylineContainer);
-    } else {
-      // Final fallback: insert at the beginning of middle controls
-      middleControls.insertBefore(discordButton, middleControls.firstChild);
-    }
-  }
+  // Insert the button between left-controls and middle-controls
+  // The button will be inserted after left-controls
+  leftControls.parentNode.insertBefore(discordButton, middleControls);
   
   // Check initial streaming status
   checkStreamingStatus();
