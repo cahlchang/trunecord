@@ -1,6 +1,33 @@
-# ♫trunecord (Music to Discord) - Go Client
+# trunecord (Music to Discord) - Go Client
 
-A single-binary Go implementation of the ♫trunecord (Music to Discord) local client, replacing the Electron version.
+A single-binary Go implementation of the trunecord (Music to Discord) local client, replacing the Electron version.
+
+## ⚠️ Important Note about Audio Support
+
+### Supported Platforms (with Audio)
+The following pre-built binaries include **full audio streaming support**:
+- **Windows (AMD64)**: `trunecord-windows-amd64.zip` (includes required DLL files)
+- **macOS (Intel)**: `trunecord-darwin-amd64`
+- **macOS (Apple Silicon)**: `trunecord-darwin-arm64`
+- **Linux (AMD64)**: `trunecord-linux-amd64`
+
+### Limited Support (No Audio)
+The following binaries are provided for compatibility but **do not support audio streaming**:
+- **Linux ARM64**: `trunecord-linux-arm64-nocgo`
+
+### Building from Source
+For platforms without audio support, you must compile from source:
+
+```bash
+# Install opus library first:
+# macOS: brew install opus
+# Ubuntu/Debian: sudo apt-get install libopus-dev
+# Windows: See building instructions below
+
+CGO_ENABLED=1 go build ./cmd/
+```
+
+See the [Building from Source](#building-from-source) section below for detailed instructions.
 
 ## ⚠️ Important Note about Audio Support
 
