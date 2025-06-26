@@ -1,122 +1,190 @@
-# Music to Discord
+# Trunecord
 
-Stream YouTube Music (and other services) audio to Discord voice channels.
+Stream YouTube Music audio directly to Discord voice channels through a Chrome extension and local client.
 
-## Architecture
+## Overview
 
-This project consists of three main components:
+Trunecord is a system that allows you to stream audio from YouTube Music to Discord voice channels. It consists of:
+- A Chrome extension that captures audio from YouTube Music tabs
+- A local Go client that streams the audio to Discord
+- A Discord bot that plays the audio in voice channels
 
-1. **Central Authentication Server** - Handles Discord OAuth2 authentication
-2. **Local Client Application** - Desktop app that manages audio streaming to Discord
-3. **Chrome Extension** - Captures audio from browser tabs
-
-## Components
-
-### 1. Authentication Server (`auth-server/`)
-
-Central server that handles:
-- Discord OAuth2 authentication
-- Provides list of available servers/channels
-- Issues tokens for local clients
-
-### 2. Local Client (`local-client/`)
-
-Electron desktop application that:
-- Connects directly to Discord using bot token
-- Receives audio from Chrome extension
-- Streams audio to selected Discord voice channel
-- Provides UI for server/channel selection
-
-### 3. Chrome Extension (`extension/`)
-
-Browser extension that:
-- Adds streaming button to YouTube Music
-- Captures tab audio
-- Sends audio to local client via WebSocket
-
-## Setup Instructions
+## Quick Start Guide
 
 ### Prerequisites
 
-- Node.js 16.11.0 or higher
-- Discord account
-- Discord server where you have admin permissions
+- Chrome browser
+- Discord account with a server where you want to stream music
+- Go runtime installed (version 1.19 or higher)
 
-### 1. Discord Bot Setup
+### Step 1: Invite the Discord Bot
 
-1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
-2. Create a new application
-3. Go to "Bot" section and create a bot
-4. Copy the bot token
-5. Go to OAuth2 → URL Generator
-6. Select scopes: `bot`, `applications.commands`
-7. Select bot permissions: `Connect`, `Speak`, `Use Voice Activity`
-8. Use the generated URL to invite the bot to your server
+First, you need to invite the Trunecord bot to your Discord server:
 
-### 2. Auth Server Setup
+🤖 **[Click here to invite the Trunecord bot](https://discord.com/oauth2/authorize?client_id=1386587888359313500&permissions=36702208&integration_type=0&scope=bot)**
+
+The bot requires the following permissions:
+- **View Channels** - To see available channels
+- **Connect** - To join voice channels
+- **Speak** - To stream audio in voice channels
+
+### Step 2: Install the Chrome Extension
+
+1. Download the latest `trunecord-extension.zip` from the releases
+2. Extract the ZIP file to a folder on your computer
+3. Open Chrome and navigate to `chrome://extensions/`
+4. Enable **"Developer mode"** using the toggle in the top right corner
+5. Click **"Load unpacked"** and select the extracted extension folder
+6. You should see the Trunecord icon appear in your Chrome toolbar
+
+### Step 3: Start the Local Client
 
 ```bash
-cd auth-server
-npm install
-cp .env.example .env
-# Edit .env with your Discord app credentials
-npm start
+# Clone the repository (if you haven't already)
+git clone https://github.com/yourusername/trunecord.git
+cd trunecord/go-client
+
+# Run the Go client
+go run main.go
 ```
 
-### 3. Local Client Setup
-
-```bash
-cd local-client
-npm install
-npm start
+The client will start and display:
+```
+Trunecord client starting...
+Listening on :8080
 ```
 
-### 4. Chrome Extension Setup
+### Step 4: Configure the Extension
 
-1. Open Chrome and go to `chrome://extensions/`
-2. Enable "Developer mode"
-3. Click "Load unpacked"
-4. Select the `extension` directory
+1. Click the Trunecord extension icon in your Chrome toolbar
+2. Select your Discord server from the dropdown
+3. Choose the voice channel where you want to stream music
+4. Click **"Connect"** to establish the connection
 
-## Usage
+### Step 5: Start Streaming!
 
-1. Start the auth server and local client
-2. Open the local client app and authenticate with Discord
-3. Select your Discord server and voice channel
-4. Go to YouTube Music in Chrome
-5. Click the "Stream to Discord" button in the player controls
+1. Open [YouTube Music](https://music.youtube.com) in Chrome
+2. Play any song or playlist
+3. Look for the **Discord streaming button** next to the playback time in the player bar
+4. Click the button to start streaming (it will turn red when active)
+5. The bot will join your selected voice channel and start playing the audio
+
+## How It Works
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  YouTube Music  │────▶│ Chrome Extension│────▶│   Local Client  │
+│   (Browser)     │     │ (Audio Capture) │     │   (Go Binary)   │
+└─────────────────┘     └─────────────────┘     └────────┬────────┘
+                                                          │
+                                                          ▼
+                                                 ┌─────────────────┐
+                                                 │  Discord Bot    │
+                                                 │ (Voice Channel) │
+                                                 └─────────────────┘
+```
+
+1. **Audio Capture**: The Chrome extension uses the `tabCapture` API to capture audio from YouTube Music
+2. **Local Processing**: Audio is sent to the local Go client via WebSocket (no external servers)
+3. **Discord Streaming**: The Go client uses the Discord API to stream audio through the bot
+4. **Voice Output**: The bot plays the audio in your selected Discord voice channel
+
+## Features
+
+- 🎵 Stream high-quality audio from YouTube Music to Discord
+- 🔴 Visual streaming indicator in the YouTube Music player
+- 🔄 Automatic reconnection handling
+- 🔒 All audio processing happens locally (privacy-focused)
+- ⚡ Low-latency streaming
+- 🎮 Simple one-click interface
+
+## Architecture
+
+### Components
+
+1. **Chrome Extension** (`extension/`)
+   - Injects streaming button into YouTube Music
+   - Captures tab audio using Chrome APIs
+   - Sends audio data to local client
+
+2. **Go Client** (`go-client/`)
+   - Receives audio from Chrome extension
+   - Handles Discord bot connection
+   - Streams audio to voice channels
+
+3. **Discord Bot**
+   - Pre-configured bot (no setup required)
+   - Joins voice channels on command
+   - Plays audio stream
+
+## Troubleshooting
+
+### Bot doesn't join the voice channel
+- Ensure the bot has been invited to your server with proper permissions
+- Check that you've selected a voice channel in the extension popup
+- Make sure you're in the voice channel yourself
+
+### No audio is playing
+- Verify the local Go client is running (check the terminal)
+- Ensure YouTube Music is actually playing audio
+- Check the streaming button is in the "active" (red) state
+- Look for any error messages in the extension popup
+
+### Extension doesn't appear
+- Make sure Developer mode is enabled in Chrome
+- Try reloading the extension from `chrome://extensions/`
+- Check for errors on the extension card
+
+### Connection errors
+- Ensure the Go client is running on port 8080
+- Check your firewall isn't blocking local connections
+- Try restarting both the extension and the Go client
+
+## Privacy & Security
+
+- 🔒 **Local Processing**: All audio is processed on your machine
+- 🚫 **No External Servers**: Audio never leaves your computer except to Discord
+- 🔐 **Secure WebSocket**: All connections use secure protocols
+- 👤 **User Control**: Bot only joins channels you explicitly select
 
 ## Development
 
-### Auth Server
+### Building from Source
+
+#### Chrome Extension
 ```bash
-cd auth-server
-npm run dev  # Start with auto-reload
+cd extension
+npm install
+npm test
 ```
 
-### Local Client
+#### Go Client
 ```bash
-cd local-client
-npm run dev  # Start in development mode
+cd go-client
+go build -o trunecord
+./trunecord
 ```
 
-### Building Local Client
+### Creating Extension Package
 ```bash
-cd local-client
-npm run build  # Build for current platform
-npm run dist   # Create distribution package
+cd extension
+zip -r ../trunecord-extension.zip . -x "node_modules/*" -x "test/*" -x "*.json"
 ```
 
-## Security Notes
+## Contributing
 
-- Never commit `.env` files or expose tokens
-- The bot token is only used by the local client
-- All audio streaming happens locally (no audio goes through central servers)
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-## Future Enhancements
+## License
 
-- Support for additional music services (Spotify, SoundCloud, etc.)
-- Multi-platform native clients
-- Audio quality settings
-- Volume control
-- Queue management
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Support
+
+For issues, feature requests, or questions:
+- Open an issue on GitHub
+- Join our Discord server (link coming soon)
+
+---
+
+*Enjoy streaming your favorite music to Discord with Trunecord!* 🎵

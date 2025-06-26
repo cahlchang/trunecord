@@ -1,7 +1,7 @@
 {
-  "name": "music-to-discord-auth-server",
+  "name": "trunecord-auth-server",
   "version": "1.0.0",
-  "description": "Central authentication server for Music to Discord",
+  "description": "Central authentication server for trunecord",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

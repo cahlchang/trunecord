@@ -9,7 +9,7 @@ terraform {
   # Local backend for now - uncomment below for S3 backend
   # backend "s3" {
   #   bucket = "your-terraform-state-bucket"
-  #   key    = "music-to-discord/terraform.tfstate"
+  #   key    = "trunecord/terraform.tfstate"
   #   region = "ap-northeast-1"
   # }
 }

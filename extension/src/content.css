@@ -83,10 +83,29 @@
 
 /* YouTube Music specific adjustments */
 ytmusic-player-bar .discord-stream-button {
-  height: 28px;
-  padding: 0 10px;
-  margin-right: 8px;
+  height: 32px;
+  padding: 0 12px;
+  margin: 0 16px;
   align-self: center;
+  flex-shrink: 0;
+  display: inline-flex !important;
+  vertical-align: middle;
+}
+
+/* Force inline layout for player bar */
+ytmusic-player-bar {
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* Ensure left controls don't break layout */
+ytmusic-player-bar .left-controls {
+  flex-shrink: 0;
+}
+
+/* Ensure middle controls fill remaining space */
+ytmusic-player-bar .middle-controls {
+  flex: 1;
 }
 
 /* Dark mode compatibility */

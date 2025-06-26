@@ -108,9 +108,11 @@ function insertButton() {
     return;
   }
   
-  // Find the middle controls section (with song info)
+  // Find the left controls and middle controls sections
+  const leftControls = playerBar.querySelector('.left-controls');
   const middleControls = playerBar.querySelector('.middle-controls');
-  if (!middleControls) {
+  
+  if (!leftControls || !middleControls) {
     setTimeout(insertButton, 1000);
     return;
   }
@@ -120,15 +122,12 @@ function insertButton() {
     return;
   }
   
-  // Create and insert the button before the thumbnail
+  // Create the button
   discordButton = createDiscordButton();
-  const thumbnail = middleControls.querySelector('.thumbnail-image-wrapper, .image, ytmusic-player-thumbnail-overlay');
-  if (thumbnail && thumbnail.parentElement) {
-    thumbnail.parentElement.insertBefore(discordButton, thumbnail);
-  } else {
-    // Fallback: insert at the beginning of middle controls
-    middleControls.insertBefore(discordButton, middleControls.firstChild);
-  }
+  
+  // Insert the button between left-controls and middle-controls
+  // The button will be inserted after left-controls
+  leftControls.parentNode.insertBefore(discordButton, middleControls);
   
   // Check initial streaming status
   checkStreamingStatus();

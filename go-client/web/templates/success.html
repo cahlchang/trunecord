@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎉 Authentication Successful!</h1>
+        </header>
+
+        <main>
+            <div class="alert alert-success">
+                {{.Success}}
+            </div>
+
+            <div class="info-section">
+                <h3>What's Next?</h3>
+                <ul>
+                    <li>✅ You're now authenticated with Discord</li>
+                    <li>✅ Found {{len .Guilds}} server(s) where you can stream</li>
+                    <li>🎵 Go back to the main page to select a voice channel</li>
+                    <li>🎵 Install the Chrome extension if you haven't already</li>
+                    <li>🎵 Open YouTube Music and start streaming!</li>
+                </ul>
+            </div>
+
+            <div class="guild-list">
+                <h3>Available Servers:</h3>
+                <ul>
+                    {{range .Guilds}}
+                        <li class="guild-item">
+                            <strong>{{.Name}}</strong>
+                            <span class="guild-id">ID: {{.ID}}</span>
+                        </li>
+                    {{end}}
+                </ul>
+            </div>
+
+            <div class="button-group">
+                <a href="/" class="btn btn-primary">Go to Main Page</a>
+            </div>
+        </main>
+
+        <footer>
+            <p>You can close this window and return to the application.</p>
+        </footer>
+    </div>
+
+    <script>
+        // Auto-redirect after 3 seconds
+        setTimeout(() => {
+            window.location.href = '/';
+        }, 3000);
+    </script>
+</body>
+</html>

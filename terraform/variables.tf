@@ -13,7 +13,7 @@ variable "environment" {
 variable "project_name" {
   description = "Project name"
   type        = string
-  default     = "music-to-discord"
+  default     = "trunecord"
 }
 
 variable "discord_client_id" {
@@ -37,7 +37,7 @@ variable "discord_bot_token" {
 variable "frontend_url" {
   description = "Frontend URL for OAuth redirects"
   type        = string
-  default     = "http://localhost:3000"
+  default     = "http://localhost:48766"
 }
 
 variable "jwt_secret" {
