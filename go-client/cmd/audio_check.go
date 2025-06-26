@@ -11,7 +11,7 @@ func checkAudioSupport() error {
 	if err != nil {
 		return err
 	}
-	
+
 	// Test encoding a dummy frame
 	dummyPCM := make([]int16, 960) // 20ms at 48kHz
 	_, err = encoder.Encode(dummyPCM, 960, 4000)
