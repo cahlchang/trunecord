@@ -5,3 +5,8 @@ type OpusEncoder interface {
 	Encode(pcm []int16, frameSize, maxBytes int) ([]byte, error)
 	SetBitrate(bitrate int) error
 }
+
+// NewOpusEncoderTest creates an encoder for testing audio support
+func NewOpusEncoderTest() (OpusEncoder, error) {
+	return newOpusEncoder()
+}

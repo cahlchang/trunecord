@@ -33,14 +33,30 @@ jobs:
   build:
     name: Build Go binaries
     needs: release
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        goos: [linux, windows, darwin]
-        goarch: [amd64, arm64]
-        exclude:
-          - goos: windows
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            cgo: 1
+          - os: ubuntu-latest
+            goos: linux
             goarch: arm64
+            cgo: 0
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+            cgo: 0
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+            cgo: 1
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+            cgo: 1
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -50,18 +66,35 @@ jobs:
         with:
           go-version: '1.21'
 
+      - name: Install dependencies (Ubuntu)
+        if: matrix.goos == 'linux' && matrix.cgo == 1
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopus-dev
+
+      - name: Install dependencies (macOS)
+        if: matrix.goos == 'darwin' && matrix.cgo == 1
+        run: |
+          brew install opus
+
+      # Skip Windows CGO build for now due to complexity
+      # Windows users should compile from source
+
       - name: Build binary
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 0
+          CGO_ENABLED: ${{ matrix.cgo }}
         run: |
           cd go-client
           output_name=trunecord-${{ matrix.goos }}-${{ matrix.goarch }}
+          if [ "${{ matrix.cgo }}" = "0" ]; then
+            output_name="${output_name}-nocgo"
+          fi
           if [ "${{ matrix.goos }}" = "windows" ]; then
             output_name="${output_name}.exe"
           fi
-          go build -o dist/${output_name} ./cmd/main.go
+          go build -o dist/${output_name} ./cmd/
 
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
@@ -69,6 +102,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.release.outputs.upload_url }}
-          asset_path: ./go-client/dist/trunecord-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }}
-          asset_name: trunecord-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }}
+          asset_path: ./go-client/dist/trunecord-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.cgo == 0 && '-nocgo' || '' }}${{ matrix.goos == 'windows' && '.exe' || '' }}
+          asset_name: trunecord-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.cgo == 0 && '-nocgo' || '' }}${{ matrix.goos == 'windows' && '.exe' || '' }}
           asset_content_type: application/octet-stream

@@ -26,6 +26,17 @@ var (
 func main() {
 	flag.Parse()
 
+	// Check if audio streaming is supported
+	if err := checkAudioSupport(); err != nil {
+		log.Printf("WARNING: %v", err)
+		log.Printf("This build does not support audio streaming. Please compile from source with CGO enabled:")
+		log.Printf("  CGO_ENABLED=1 go build ./cmd/main.go")
+		log.Printf("")
+		log.Printf("Or download a platform-specific build from:")
+		log.Printf("  https://github.com/cahlchang/trunecord/releases")
+		os.Exit(1)
+	}
+
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
@@ -46,7 +57,7 @@ func main() {
 		cfg.AuthAPIURL = *authURL
 	}
 
-	log.Printf("Starting ♫trunecord (Music to Discord) Go Client")
+	log.Printf("Starting trunecord (Music to Discord) Go Client")
 	log.Printf("WebSocket Port: %s", cfg.WebSocketPort)
 	log.Printf("Web Port: %s", cfg.WebPort)
 	log.Printf("Auth API URL: %s", cfg.AuthAPIURL)

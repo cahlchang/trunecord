@@ -22,5 +22,6 @@ func (e *cgoOpusEncoder) Encode(pcm []int16, frameSize, maxBytes int) ([]byte, e
 }
 
 func (e *cgoOpusEncoder) SetBitrate(bitrate int) error {
-	return e.encoder.SetBitrate(bitrate)
+	e.encoder.SetBitrate(bitrate)
+	return nil
 }
