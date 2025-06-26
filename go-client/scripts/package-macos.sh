@@ -41,6 +41,8 @@ cat > "${BUNDLE_PATH}/Contents/Info.plist" << EOF
     <string>1.0.3</string>
     <key>CFBundleShortVersionString</key>
     <string>1.0.3</string>
+    <key>CFBundleIconFile</key>
+    <string>icon</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleSignature</key>
@@ -102,8 +104,41 @@ osascript -e 'display notification "trunecord has been stopped" with title "trun
 EOF
 chmod +x "${BUNDLE_PATH}/Contents/MacOS/stop-trunecord"
 
-# Create icon (placeholder - you can add a proper .icns file later)
-touch "${BUNDLE_PATH}/Contents/Resources/icon.icns"
+# Create icon from PNG if available
+# Try multiple possible locations
+for PNG_PATH in "${OUTPUT_DIR}/../../resource/image.png" "../resource/image.png" "resource/image.png"; do
+    if [ -f "$PNG_PATH" ]; then
+        ICON_PNG="$PNG_PATH"
+        break
+    fi
+done
+
+if [ -n "$ICON_PNG" ] && [ -f "$ICON_PNG" ]; then
+    # Create temporary directory for icon generation
+    ICON_TEMP="${OUTPUT_DIR}/icon.iconset"
+    mkdir -p "$ICON_TEMP"
+    
+    # Generate various icon sizes using sips
+    sips -z 16 16     "$ICON_PNG" --out "${ICON_TEMP}/icon_16x16.png"
+    sips -z 32 32     "$ICON_PNG" --out "${ICON_TEMP}/icon_16x16@2x.png"
+    sips -z 32 32     "$ICON_PNG" --out "${ICON_TEMP}/icon_32x32.png"
+    sips -z 64 64     "$ICON_PNG" --out "${ICON_TEMP}/icon_32x32@2x.png"
+    sips -z 128 128   "$ICON_PNG" --out "${ICON_TEMP}/icon_128x128.png"
+    sips -z 256 256   "$ICON_PNG" --out "${ICON_TEMP}/icon_128x128@2x.png"
+    sips -z 256 256   "$ICON_PNG" --out "${ICON_TEMP}/icon_256x256.png"
+    sips -z 512 512   "$ICON_PNG" --out "${ICON_TEMP}/icon_256x256@2x.png"
+    sips -z 512 512   "$ICON_PNG" --out "${ICON_TEMP}/icon_512x512.png"
+    sips -z 1024 1024 "$ICON_PNG" --out "${ICON_TEMP}/icon_512x512@2x.png"
+    
+    # Convert to icns
+    iconutil -c icns "$ICON_TEMP" -o "${BUNDLE_PATH}/Contents/Resources/icon.icns"
+    rm -rf "$ICON_TEMP"
+    
+    echo "Created app icon from ${ICON_PNG}"
+else
+    # Create placeholder icon
+    touch "${BUNDLE_PATH}/Contents/Resources/icon.icns"
+fi
 
 # Create a simple README for the DMG
 cat > "${OUTPUT_DIR}/README.txt" << 'EOF'
@@ -160,15 +195,17 @@ tell application "Finder"
         set current view of container window to icon view
         set toolbar visible of container window to false
         set statusbar visible of container window to false
-        set bounds of container window to {400, 100, 900, 400}
+        set bounds of container window to {400, 100, 900, 450}
         set viewOptions to the icon view options of container window
         set arrangement of viewOptions to not arranged
-        set icon size of viewOptions to 72
-        set position of item "trunecord.app" of container window to {125, 150}
-        set position of item "Applications" of container window to {375, 150}
-        set position of item "README.txt" of container window to {250, 250}
+        set icon size of viewOptions to 80
+        set text size of viewOptions to 12
+        set position of item "trunecord.app" of container window to {150, 120}
+        set position of item "Applications" of container window to {350, 120}
+        set position of item "README.txt" of container window to {250, 280}
+        set background picture of viewOptions to POSIX file "/System/Library/CoreServices/DefaultBackground.jpg"
         update without registering applications
-        delay 2
+        delay 3
         close
     end tell
 end tell
