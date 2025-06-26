@@ -64,7 +64,7 @@ func (s *Server) Start() error {
 
 	// Create a new mux for this server
 	mux := http.NewServeMux()
-	
+
 	// Routes
 	mux.HandleFunc("/", s.handleHome)
 	mux.HandleFunc("/auth", s.handleAuth)
@@ -79,10 +79,10 @@ func (s *Server) Start() error {
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("web/static/"))))
 
 	log.Printf("Web server starting on port %s", s.port)
-	
+
 	// Auto-open browser
 	go s.openBrowser()
-	
+
 	return http.ListenAndServe(":"+s.port, mux)
 }
 
@@ -120,10 +120,10 @@ func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("Rendering home page with %d guilds, token: %v", len(data.Guilds), data.Token != "")
-	
+
 	// Set proper content type
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	
+
 	err := s.templates.ExecuteTemplate(w, "index.html", data)
 	if err != nil {
 		log.Printf("Template execution error: %v", err)
@@ -148,7 +148,7 @@ func (s *Server) handleAuthSuccess(w http.ResponseWriter, r *http.Request) {
 	// Parse token and guilds from URL parameters
 	token := r.URL.Query().Get("token")
 	guildsParam := r.URL.Query().Get("guilds")
-	
+
 	if token != "" && guildsParam != "" {
 		// Parse guilds JSON
 		var guilds []auth.Guild
@@ -158,7 +158,7 @@ func (s *Server) handleAuthSuccess(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/?error="+url.QueryEscape("Failed to parse authentication data"), http.StatusTemporaryRedirect)
 			return
 		}
-		
+
 		// Store token data
 		s.tokenData = &auth.TokenData{
 			Token:  token,
@@ -166,7 +166,7 @@ func (s *Server) handleAuthSuccess(w http.ResponseWriter, r *http.Request) {
 		}
 		log.Printf("Successfully authenticated with %d guilds from URL params", len(guilds))
 	}
-	
+
 	data := PageData{
 		Title:   "Authentication Successful",
 		Success: "Successfully authenticated with Discord!",
@@ -179,7 +179,7 @@ func (s *Server) handleAuthSuccess(w http.ResponseWriter, r *http.Request) {
 
 	// Set proper content type
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	
+
 	err := s.templates.ExecuteTemplate(w, "success.html", data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -281,7 +281,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	if s.wsServer != nil {
 		chromeStreaming = s.wsServer.IsStreaming()
 	}
-	
+
 	status := map[string]interface{}{
 		"connected":     s.streamer.IsConnected(),
 		"streaming":     chromeStreaming && s.streamer.IsConnected(), // Both must be true
@@ -333,7 +333,7 @@ func (s *Server) handleChannels(w http.ResponseWriter, r *http.Request) {
 func (s *Server) loadInlineTemplates() {
 	// Templates are loaded from templates.go
 	var err error
-	
+
 	log.Printf("Loading index template, length: %d bytes", len(indexTemplate))
 	_, err = s.templates.New("index.html").Parse(indexTemplate)
 	if err != nil {
@@ -343,7 +343,7 @@ func (s *Server) loadInlineTemplates() {
 	} else {
 		log.Printf("Successfully parsed index template")
 	}
-	
+
 	log.Printf("Loading success template, length: %d bytes", len(successTemplate))
 	_, err = s.templates.New("success.html").Parse(successTemplate)
 	if err != nil {
@@ -352,7 +352,7 @@ func (s *Server) loadInlineTemplates() {
 	} else {
 		log.Printf("Successfully parsed success template")
 	}
-	
+
 	// List all loaded templates
 	log.Printf("Loaded templates:")
 	for _, t := range s.templates.Templates() {

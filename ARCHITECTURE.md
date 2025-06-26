@@ -1,4 +1,4 @@
-# ♫trunecord (Music to Discord) Architecture
+# trunecord (Music to Discord) Architecture
 
 ## Overview
 

@@ -105,10 +105,10 @@ func (s *Streamer) StartStreaming(audioChannel <-chan []byte) error {
 	if err != nil {
 		return fmt.Errorf("failed to create opus encoder: %v", err)
 	}
-	
+
 	// Set bitrate for better quality
 	encoder.SetBitrate(128000) // 128 kbps
-	
+
 	s.encoder = encoder
 
 	s.streaming = true
@@ -163,11 +163,11 @@ func (s *Streamer) streamAudio(audioChannel <-chan []byte) {
 
 	// Larger buffer to prevent underruns
 	pcmBuffer := make([]byte, 0, frameSizeBytes*10)
-	
+
 	// Timing control for consistent 20ms frames
 	ticker := time.NewTicker(20 * time.Millisecond)
 	defer ticker.Stop()
-	
+
 	// Add a small initial delay to build up buffer
 	time.Sleep(100 * time.Millisecond)
 
