@@ -107,26 +107,79 @@ touch "${BUNDLE_PATH}/Contents/Resources/icon.icns"
 
 # Create a simple README for the DMG
 cat > "${OUTPUT_DIR}/README.txt" << 'EOF'
-trunecord for macOS
-==================
+trunecord for macOS - Installation Guide
+========================================
 
-To use trunecord:
-1. Drag trunecord.app to your Applications folder
-2. Double-click trunecord.app to start
-3. Your browser will open to http://localhost:48766
-4. The app runs in the background
+INSTALLATION:
+1. Drag "trunecord.app" to the "Applications" folder (shortcut provided)
+2. Close this window
+3. Open "trunecord.app" from your Applications folder
+   (First time: Right-click → Open to bypass Gatekeeper)
 
-To stop trunecord:
-- Run: pkill -f trunecord-bin
-- Or use Activity Monitor
+USAGE:
+- The app runs in the background
+- Your browser will automatically open to http://localhost:48766
+- Configure Discord settings in the web interface
 
-Logs are stored in: ~/Library/Logs/trunecord/
+TO STOP:
+- Open Activity Monitor and quit "trunecord-bin"
+- Or run in Terminal: pkill -f trunecord-bin
 
-For more info: https://github.com/cahlchang/trunecord
+LOGS:
+- ~/Library/Logs/trunecord/trunecord.log
+
+SUPPORT:
+- https://github.com/cahlchang/trunecord
 EOF
 
-# Create DMG
+# Create a temporary directory for DMG contents
+DMG_TEMP="${OUTPUT_DIR}/dmg-temp"
+mkdir -p "${DMG_TEMP}"
+cp -r "${BUNDLE_PATH}" "${DMG_TEMP}/"
+ln -s /Applications "${DMG_TEMP}/Applications"
+cp "${OUTPUT_DIR}/README.txt" "${DMG_TEMP}/"
+
+# Create DMG with nice layout
 DMG_NAME="trunecord-darwin-${ARCH}.dmg"
-hdiutil create -volname "trunecord" -srcfolder "${BUNDLE_PATH}" -ov -format UDZO "${OUTPUT_DIR}/${DMG_NAME}"
+DMG_TEMP_NAME="trunecord-temp.dmg"
+
+# Create initial DMG
+hdiutil create -volname "trunecord" -srcfolder "${DMG_TEMP}" -ov -format UDRW -size 100m "${OUTPUT_DIR}/${DMG_TEMP_NAME}"
+
+# Mount the DMG
+DEVICE=$(hdiutil attach -readwrite -noverify -noautoopen "${OUTPUT_DIR}/${DMG_TEMP_NAME}" | egrep '^/dev/' | sed 1q | awk '{print $1}')
+
+# Wait for mount
+sleep 2
+
+# Set DMG window properties using AppleScript
+osascript << EOF
+tell application "Finder"
+    tell disk "trunecord"
+        open
+        set current view of container window to icon view
+        set toolbar visible of container window to false
+        set statusbar visible of container window to false
+        set bounds of container window to {400, 100, 900, 400}
+        set viewOptions to the icon view options of container window
+        set arrangement of viewOptions to not arranged
+        set icon size of viewOptions to 72
+        set position of item "trunecord.app" of container window to {125, 150}
+        set position of item "Applications" of container window to {375, 150}
+        set position of item "README.txt" of container window to {250, 250}
+        update without registering applications
+        delay 2
+        close
+    end tell
+end tell
+EOF
+
+# Unmount
+hdiutil detach "${DEVICE}"
+
+# Convert to compressed DMG
+hdiutil convert "${OUTPUT_DIR}/${DMG_TEMP_NAME}" -format UDZO -o "${OUTPUT_DIR}/${DMG_NAME}"
+rm -f "${OUTPUT_DIR}/${DMG_TEMP_NAME}"
+rm -rf "${DMG_TEMP}"
 
 echo "macOS app bundle created: ${OUTPUT_DIR}/${DMG_NAME}"
