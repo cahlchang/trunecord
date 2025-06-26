@@ -88,6 +88,7 @@ jobs:
             mingw-w64-x86_64-pkg-config
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-go
+            zip
 
       - name: Build binary (Windows with MSYS2)
         if: matrix.goos == 'windows' && matrix.cgo == 1

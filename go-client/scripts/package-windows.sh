@@ -47,15 +47,6 @@ EOF
 
 # Create zip file
 cd "$OUTPUT_DIR"
-
-# Use PowerShell to create zip on Windows
-if command -v powershell >/dev/null 2>&1; then
-    powershell -Command "Compress-Archive -Path 'trunecord-windows-package/*' -DestinationPath 'trunecord-windows-amd64.zip' -Force"
-elif command -v zip >/dev/null 2>&1; then
-    zip -r "trunecord-windows-amd64.zip" "trunecord-windows-package/"
-else
-    echo "Error: Neither PowerShell nor zip command found. Cannot create archive."
-    exit 1
-fi
+zip -r "trunecord-windows-amd64.zip" "trunecord-windows-package/"
 
 echo "Windows package created: ${OUTPUT_DIR}/trunecord-windows-amd64.zip"
