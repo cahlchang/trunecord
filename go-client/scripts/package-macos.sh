@@ -55,6 +55,8 @@ cat > "${BUNDLE_PATH}/Contents/Info.plist" << EOF
     <true/>
     <key>LSBackgroundOnly</key>
     <false/>
+    <key>NSUserNotificationAlertStyle</key>
+    <string>alert</string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
 </dict>
@@ -77,6 +79,7 @@ if pgrep -f "${DIR}/trunecord-bin" > /dev/null; then
     open "http://localhost:48766"
 else
     # Start trunecord in background and redirect output to log
+    # The app will show in menu bar
     "${DIR}/trunecord-bin" >> "$LOG_FILE" 2>&1 &
     
     # Wait a moment for the server to start
@@ -84,9 +87,6 @@ else
     
     # Open the web interface
     open "http://localhost:48766"
-    
-    # Show notification
-    osascript -e 'display notification "trunecord is now running. Check http://localhost:48766" with title "trunecord Started"'
 fi
 EOF
 chmod +x "${BUNDLE_PATH}/Contents/MacOS/${APP_NAME}-launcher"
@@ -152,13 +152,18 @@ INSTALLATION:
    (First time: Right-click → Open to bypass Gatekeeper)
 
 USAGE:
-- The app runs in the background
+- The app runs in the menu bar (look for ♫ icon)
 - Your browser will automatically open to http://localhost:48766
 - Configure Discord settings in the web interface
+- Click the menu bar icon to:
+  - View connection status
+  - Open web interface
+  - View logs
+  - Quit the app
 
 TO STOP:
-- Open Activity Monitor and quit "trunecord-bin"
-- Or run in Terminal: pkill -f trunecord-bin
+- Click the ♫ icon in menu bar → Quit trunecord
+- Or use Activity Monitor to quit "trunecord-bin"
 
 LOGS:
 - ~/Library/Logs/trunecord/trunecord.log

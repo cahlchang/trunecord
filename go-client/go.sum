@@ -1,5 +1,9 @@
 github.com/bwmarrin/discordgo v0.27.1 h1:ib9AIc/dom1E/fSIulrBwnez0CToJE113ZGt4HoliGY=
 github.com/bwmarrin/discordgo v0.27.1/go.mod h1:NJZpH+1AfhIcyQsPeuBKsUtYrRnjkyu0kIVMCHkZtRY=
+github.com/caseymrm/askm v1.0.0 h1:Ff5QN5GwuyCzg63++hU1jV+1JVYHYd0sw6KUkVd2GiQ=
+github.com/caseymrm/askm v1.0.0/go.mod h1:raj+vtH8SsGkuSg1/970qaONNyNlIb7zFv2LDVk6j+U=
+github.com/caseymrm/menuet v1.0.3 h1:+JC25L0mxE9a5RUtY88JNZV0awQSbObw/kqKbBWYMTs=
+github.com/caseymrm/menuet v1.0.3/go.mod h1:Vdn4A7NdnGnx9CwlhyhAn4ii5xrpQkvaONdzpTyJ4j0=
 github.com/gorilla/websocket v1.4.2/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/gorilla/websocket v1.5.0 h1:PPwGk2jz7EePpoHN/+ClbZu8SPxiqlu12wZP/3sWmnc=
 github.com/gorilla/websocket v1.5.0/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=

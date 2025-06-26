@@ -79,6 +79,11 @@ func main() {
 		authClient: authClient,
 	}
 
+	// Run the application with platform-specific features
+	runApp(app)
+}
+
+func (app *Application) run() {
 	// Start servers
 	var wg sync.WaitGroup
 
@@ -115,7 +120,7 @@ func main() {
 	log.Println("Shutting down...")
 
 	// Cleanup
-	if err := streamer.Disconnect(); err != nil {
+	if err := app.streamer.Disconnect(); err != nil {
 		log.Printf("Error disconnecting from Discord: %v", err)
 	}
 
