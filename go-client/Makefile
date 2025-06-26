@@ -69,7 +69,7 @@ build-embed:
 # Test
 .PHONY: test
 test:
-	go test -v ./...
+	CGO_ENABLED=1 go test -v ./...
 
 # Test with coverage
 .PHONY: test-coverage

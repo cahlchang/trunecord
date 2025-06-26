@@ -159,7 +159,7 @@ const indexTemplate = `<!DOCTYPE html>
     <div class="hero-section">
         <div class="container text-center">
             <h1 class="brand-title mb-3">
-                <i class="fas fa-music me-3"></i>♫trunecord
+                <i class="fas fa-music me-3"></i>trunecord
             </h1>
             <p class="lead text-secondary">(Music to Discord) - Stream trunecord voice channels</p>
         </div>

@@ -77,14 +77,14 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				// Mark as streaming when we receive audio data
 				s.setStreaming(true)
 				s.resetStreamingTimeout()
-				
+
 				// Decode base64 audio and send to audio buffer
 				audioData, err := base64.StdEncoding.DecodeString(msg.Audio)
 				if err != nil {
 					log.Printf("Failed to decode audio data: %v", err)
 					continue
 				}
-				
+
 				select {
 				case s.audioBuffer <- audioData:
 					// Audio queued successfully
@@ -104,19 +104,19 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			if err := conn.WriteJSON(status); err != nil {
 				log.Printf("Failed to send status: %v", err)
 			}
-			
+
 		case "streamStart":
 			s.setStreaming(true)
 			log.Println("Received stream start notification from Chrome extension")
-			
+
 		case "streamStop":
 			s.setStreaming(false)
 			log.Println("Received stream stop notification from Chrome extension")
-			
+
 		case "streamPause":
 			s.setStreaming(false)
 			log.Println("YouTube Music paused - streaming paused")
-			
+
 		case "streamResume":
 			s.setStreaming(true)
 			log.Println("YouTube Music resumed - streaming resumed")
@@ -157,12 +157,12 @@ func (s *Server) IsStreaming() bool {
 func (s *Server) resetStreamingTimeout() {
 	s.timeoutTimerLock.Lock()
 	defer s.timeoutTimerLock.Unlock()
-	
+
 	// Cancel existing timer
 	if s.timeoutTimer != nil {
 		s.timeoutTimer.Stop()
 	}
-	
+
 	// Set new timer for 10 seconds (to handle silence in songs)
 	s.timeoutTimer = time.AfterFunc(10*time.Second, func() {
 		s.setStreaming(false)

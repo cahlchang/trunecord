@@ -68,7 +68,7 @@ func main() {
 
 	// Start servers
 	var wg sync.WaitGroup
-	
+
 	// Start WebSocket server
 	wg.Add(1)
 	go func() {
@@ -129,15 +129,15 @@ func (app *Application) startWebServer() error {
 
 func (app *Application) handleAudioStreaming() {
 	audioChannel := app.wsServer.GetAudioChannel()
-	
+
 	// Create a continuous audio channel for Discord streaming with larger buffer
 	discordAudioChannel := make(chan []byte, 1000)
-	
+
 	// Start Discord streaming when connected
 	go func() {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
-		
+
 		for range ticker.C {
 			if app.streamer.IsConnected() && !app.streamer.IsStreaming() {
 				if err := app.streamer.StartStreaming(discordAudioChannel); err != nil {
@@ -146,7 +146,7 @@ func (app *Application) handleAudioStreaming() {
 			}
 		}
 	}()
-	
+
 	// Forward audio from WebSocket to Discord
 	for audioData := range audioChannel {
 		if app.streamer.IsConnected() {
