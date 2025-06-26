@@ -48,7 +48,7 @@ jobs:
           - os: windows-latest
             goos: windows
             goarch: amd64
-            cgo: 0
+            cgo: 1
           - os: macos-latest
             goos: darwin
             goarch: amd64
@@ -77,10 +77,37 @@ jobs:
         run: |
           brew install opus
 
-      # Skip Windows CGO build for now due to complexity
-      # Windows users should compile from source
+      - name: Setup MSYS2 (Windows)
+        if: matrix.goos == 'windows' && matrix.cgo == 1
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-opus
+            mingw-w64-x86_64-pkg-config
+            mingw-w64-x86_64-gcc
 
-      - name: Build binary
+      - name: Build binary (Windows with MSYS2)
+        if: matrix.goos == 'windows' && matrix.cgo == 1
+        shell: msys2 {0}
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: ${{ matrix.cgo }}
+        run: |
+          cd go-client
+          export PATH="/mingw64/bin:$PATH"
+          export PKG_CONFIG_PATH="/mingw64/lib/pkgconfig"
+          output_name=trunecord-${{ matrix.goos }}-${{ matrix.goarch }}.exe
+          mkdir -p dist
+          go build -o dist/${output_name} ./cmd/
+          
+          # Package with DLLs
+          ./scripts/package-windows.sh dist/${output_name} dist
+
+      - name: Build binary (non-Windows)
+        if: matrix.goos != 'windows' || matrix.cgo != 1
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
@@ -96,7 +123,19 @@ jobs:
           fi
           go build -o dist/${output_name} ./cmd/
 
-      - name: Upload Release Asset
+      - name: Upload Release Asset (Windows Package)
+        if: matrix.goos == 'windows' && matrix.cgo == 1
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.release.outputs.upload_url }}
+          asset_path: ./go-client/dist/trunecord-windows-amd64.zip
+          asset_name: trunecord-windows-amd64.zip
+          asset_content_type: application/zip
+
+      - name: Upload Release Asset (Other Platforms)
+        if: matrix.goos != 'windows' || matrix.cgo != 1
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

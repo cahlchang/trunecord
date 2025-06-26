@@ -141,13 +141,80 @@ docker build -t trunecord:latest .
 docker run -p 8765:8765 -p 48766:48766 trunecord:latest
 ```
 
+## Audio Support Requirements
+
+### Important: CGO and Opus Library
+
+trunecord requires the Opus audio codec for streaming audio to Discord. This requires CGO to be enabled and the Opus library to be installed on your system.
+
+#### Windows
+
+1. Install MSYS2 from https://www.msys2.org/
+
+2. Open MSYS2 MinGW 64-bit terminal and install dependencies:
+```bash
+pacman -S mingw-w64-x86_64-opus mingw-w64-x86_64-pkg-config mingw-w64-x86_64-gcc
+```
+
+3. Build with CGO enabled:
+```bash
+export PATH="/mingw64/bin:$PATH"
+export PKG_CONFIG_PATH="/mingw64/lib/pkgconfig"
+CGO_ENABLED=1 go build -o trunecord.exe ./cmd/
+```
+
+4. Copy required DLLs to the same directory as the executable:
+```bash
+cp /mingw64/bin/libopus-0.dll .
+cp /mingw64/bin/libgcc_s_seh-1.dll .
+cp /mingw64/bin/libwinpthread-1.dll .
+```
+
+#### macOS
+
+1. Install Opus using Homebrew:
+```bash
+brew install opus
+```
+
+2. Build with CGO enabled:
+```bash
+CGO_ENABLED=1 go build -o trunecord ./cmd/
+```
+
+#### Linux
+
+Install Opus development package:
+
+**Ubuntu/Debian:**
+```bash
+sudo apt-get update
+sudo apt-get install -y libopus-dev pkg-config
+```
+
+**Fedora/RHEL:**
+```bash
+sudo dnf install -y opus-devel pkgconfig
+```
+
+**Arch Linux:**
+```bash
+sudo pacman -S opus pkg-config
+```
+
+Then build with CGO enabled:
+```bash
+CGO_ENABLED=1 go build -o trunecord ./cmd/
+```
+
 ## Troubleshooting
 
 ### CGO Dependencies
 
-trunecord is built with CGO_ENABLED=0 by default for maximum portability. If you encounter issues:
+If you build without CGO (CGO_ENABLED=0), the binary will not support audio streaming:
 
 ```bash
+# This will create a binary without audio support
 CGO_ENABLED=0 go build -o trunecord ./cmd
 ```
 

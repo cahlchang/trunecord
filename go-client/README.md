@@ -6,13 +6,13 @@ A single-binary Go implementation of the trunecord (Music to Discord) local clie
 
 ### Supported Platforms (with Audio)
 The following pre-built binaries include **full audio streaming support**:
+- **Windows (AMD64)**: `trunecord-windows-amd64.zip` (includes required DLL files)
 - **macOS (Intel)**: `trunecord-darwin-amd64`
 - **macOS (Apple Silicon)**: `trunecord-darwin-arm64`
 - **Linux (AMD64)**: `trunecord-linux-amd64`
 
 ### Limited Support (No Audio)
 The following binaries are provided for compatibility but **do not support audio streaming**:
-- **Windows**: `trunecord-windows-amd64-nocgo`
 - **Linux ARM64**: `trunecord-linux-arm64-nocgo`
 
 ### Building from Source
