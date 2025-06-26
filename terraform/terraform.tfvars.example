@@ -1,0 +1,15 @@
+# AWS Configuration
+aws_region   = "ap-northeast-1"
+environment  = "prod"
+project_name = "music-to-discord"
+
+# Discord OAuth Configuration
+discord_client_id     = "YOUR_DISCORD_CLIENT_ID"
+discord_client_secret = "YOUR_DISCORD_CLIENT_SECRET"
+discord_bot_token     = "YOUR_DISCORD_BOT_TOKEN"
+
+# Frontend URL (where your Electron app runs)
+frontend_url = "http://localhost:3000"
+
+# JWT Secret for token signing
+jwt_secret = "YOUR_SECURE_JWT_SECRET_KEY"
