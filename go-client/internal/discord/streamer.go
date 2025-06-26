@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"layeh.com/gopus"
 )
 
 type Streamer struct {
@@ -21,7 +20,7 @@ type Streamer struct {
 	audioBuffer chan []byte
 	stopChannel chan bool
 	mutex       sync.RWMutex
-	encoder     *gopus.Encoder
+	encoder     OpusEncoder
 }
 
 func NewStreamer() *Streamer {
@@ -102,7 +101,7 @@ func (s *Streamer) StartStreaming(audioChannel <-chan []byte) error {
 
 	// Create Opus encoder
 	// 48000 Hz sample rate, 1 channel (mono), Audio application for music
-	encoder, err := gopus.NewEncoder(48000, 1, gopus.Audio)
+	encoder, err := newOpusEncoder()
 	if err != nil {
 		return fmt.Errorf("failed to create opus encoder: %v", err)
 	}
