@@ -28,12 +28,14 @@ func main() {
 
 	// Check if audio streaming is supported
 	if err := checkAudioSupport(); err != nil {
-		log.Printf("WARNING: %v", err)
+		log.Printf("ERROR: %v", err)
 		log.Printf("This build does not support audio streaming. Please compile from source with CGO enabled:")
 		log.Printf("  CGO_ENABLED=1 go build ./cmd/main.go")
 		log.Printf("")
 		log.Printf("Or download a platform-specific build from:")
 		log.Printf("  https://github.com/cahlchang/trunecord/releases")
+		log.Printf("")
+		log.Printf("Exiting due to missing audio support...")
 		os.Exit(1)
 	}
 
