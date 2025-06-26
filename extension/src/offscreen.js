@@ -100,20 +100,37 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
               silentFrames = 0;
             }
             
-            // Convert to byte array
-            const buffer = new ArrayBuffer(samples.length * 2);
-            const view = new DataView(buffer);
-            for (let i = 0; i < samples.length; i++) {
-              view.setInt16(i * 2, samples[i], true); // little-endian
+            // Convert to byte array - optimized for performance
+            const int16Array = new Int16Array(samples);
+            const uint8Array = new Uint8Array(int16Array.buffer);
+            
+            // Helper function for fallback base64 conversion
+            function arrayBufferToBase64Fallback(uint8Array) {
+              const chunkSize = 8192; // Process in chunks to avoid stack overflow
+              let binary = '';
+              for (let i = 0; i < uint8Array.length; i += chunkSize) {
+                const chunk = uint8Array.subarray(i, i + chunkSize);
+                binary += String.fromCharCode.apply(null, chunk);
+              }
+              return btoa(binary);
             }
             
-            // Convert to base64
-            const uint8Array = new Uint8Array(buffer);
-            let binary = '';
-            for (let i = 0; i < uint8Array.byteLength; i++) {
-              binary += String.fromCharCode(uint8Array[i]);
+            // Convert to base64 - optimized for large buffers
+            let base64;
+            if (typeof TextDecoder !== 'undefined') {
+              // Modern approach using TextDecoder (faster for large buffers)
+              try {
+                const decoder = new TextDecoder('latin1');
+                const binaryString = decoder.decode(uint8Array);
+                base64 = btoa(binaryString);
+              } catch (e) {
+                // Fallback if TextDecoder fails
+                base64 = arrayBufferToBase64Fallback(uint8Array);
+              }
+            } else {
+              // Fallback for older browsers
+              base64 = arrayBufferToBase64Fallback(uint8Array);
             }
-            const base64 = btoa(binary);
             
             chrome.runtime.sendMessage({
               type: 'audioData',
