@@ -50,6 +50,8 @@ cat > "${BUNDLE_PATH}/Contents/Info.plist" << EOF
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>LSUIElement</key>
+    <true/>
+    <key>LSBackgroundOnly</key>
     <false/>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
@@ -57,11 +59,33 @@ cat > "${BUNDLE_PATH}/Contents/Info.plist" << EOF
 </plist>
 EOF
 
-# Create launcher script that opens Terminal
+# Create launcher script
 cat > "${BUNDLE_PATH}/Contents/MacOS/${APP_NAME}-launcher" << 'EOF'
 #!/bin/bash
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-osascript -e "tell application \"Terminal\" to do script \"'${DIR}/trunecord'; exit\""
+LOG_DIR="$HOME/Library/Logs/trunecord"
+LOG_FILE="$LOG_DIR/trunecord.log"
+
+# Create log directory if it doesn't exist
+mkdir -p "$LOG_DIR"
+
+# Check if trunecord is already running
+if pgrep -f "${DIR}/trunecord-bin" > /dev/null; then
+    # If running, open the web interface
+    open "http://localhost:48766"
+else
+    # Start trunecord in background and redirect output to log
+    "${DIR}/trunecord-bin" >> "$LOG_FILE" 2>&1 &
+    
+    # Wait a moment for the server to start
+    sleep 2
+    
+    # Open the web interface
+    open "http://localhost:48766"
+    
+    # Show notification
+    osascript -e 'display notification "trunecord is now running. Check http://localhost:48766" with title "trunecord Started"'
+fi
 EOF
 chmod +x "${BUNDLE_PATH}/Contents/MacOS/${APP_NAME}-launcher"
 
@@ -69,8 +93,37 @@ chmod +x "${BUNDLE_PATH}/Contents/MacOS/${APP_NAME}-launcher"
 mv "${BUNDLE_PATH}/Contents/MacOS/${APP_NAME}" "${BUNDLE_PATH}/Contents/MacOS/${APP_NAME}-bin"
 mv "${BUNDLE_PATH}/Contents/MacOS/${APP_NAME}-launcher" "${BUNDLE_PATH}/Contents/MacOS/${APP_NAME}"
 
+# Create stop script
+cat > "${BUNDLE_PATH}/Contents/MacOS/stop-trunecord" << 'EOF'
+#!/bin/bash
+# Stop trunecord if it's running
+pkill -f "trunecord-bin"
+osascript -e 'display notification "trunecord has been stopped" with title "trunecord Stopped"'
+EOF
+chmod +x "${BUNDLE_PATH}/Contents/MacOS/stop-trunecord"
+
 # Create icon (placeholder - you can add a proper .icns file later)
 touch "${BUNDLE_PATH}/Contents/Resources/icon.icns"
+
+# Create a simple README for the DMG
+cat > "${OUTPUT_DIR}/README.txt" << 'EOF'
+trunecord for macOS
+==================
+
+To use trunecord:
+1. Drag trunecord.app to your Applications folder
+2. Double-click trunecord.app to start
+3. Your browser will open to http://localhost:48766
+4. The app runs in the background
+
+To stop trunecord:
+- Run: pkill -f trunecord-bin
+- Or use Activity Monitor
+
+Logs are stored in: ~/Library/Logs/trunecord/
+
+For more info: https://github.com/cahlchang/trunecord
+EOF
 
 # Create DMG
 DMG_NAME="trunecord-darwin-${ARCH}.dmg"
