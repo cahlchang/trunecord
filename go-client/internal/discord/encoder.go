@@ -6,7 +6,7 @@ type OpusEncoder interface {
 	SetBitrate(bitrate int) error
 }
 
-// NewOpusEncoderTest creates an encoder for testing audio support
+// NewOpusEncoderTest creates a new Opus encoder for testing purposes
 func NewOpusEncoderTest() (OpusEncoder, error) {
 	return newOpusEncoder()
 }

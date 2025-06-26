@@ -87,6 +87,7 @@ jobs:
             mingw-w64-x86_64-opus
             mingw-w64-x86_64-pkg-config
             mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-go
 
       - name: Build binary (Windows with MSYS2)
         if: matrix.goos == 'windows' && matrix.cgo == 1
@@ -106,8 +107,23 @@ jobs:
           # Package with DLLs
           ./scripts/package-windows.sh dist/${output_name} dist
 
-      - name: Build binary (non-Windows)
-        if: matrix.goos != 'windows' || matrix.cgo != 1
+      - name: Build binary (macOS)
+        if: matrix.goos == 'darwin' && matrix.cgo == 1
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: ${{ matrix.cgo }}
+        run: |
+          cd go-client
+          output_name=trunecord-${{ matrix.goos }}-${{ matrix.goarch }}
+          mkdir -p dist
+          go build -o dist/${output_name} ./cmd/
+          
+          # Package as macOS app
+          ./scripts/package-macos.sh dist/${output_name} dist ${{ matrix.goarch }}
+
+      - name: Build binary (other platforms)
+        if: (matrix.goos != 'windows' && matrix.goos != 'darwin') || matrix.cgo != 1
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
@@ -134,13 +150,24 @@ jobs:
           asset_name: trunecord-windows-amd64.zip
           asset_content_type: application/zip
 
-      - name: Upload Release Asset (Other Platforms)
-        if: matrix.goos != 'windows' || matrix.cgo != 1
+      - name: Upload Release Asset (macOS DMG)
+        if: matrix.goos == 'darwin' && matrix.cgo == 1
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.release.outputs.upload_url }}
-          asset_path: ./go-client/dist/trunecord-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.cgo == 0 && '-nocgo' || '' }}${{ matrix.goos == 'windows' && '.exe' || '' }}
-          asset_name: trunecord-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.cgo == 0 && '-nocgo' || '' }}${{ matrix.goos == 'windows' && '.exe' || '' }}
+          asset_path: ./go-client/dist/trunecord-darwin-${{ matrix.goarch }}.dmg
+          asset_name: trunecord-darwin-${{ matrix.goarch }}.dmg
+          asset_content_type: application/x-apple-diskimage
+
+      - name: Upload Release Asset (Other Platforms)
+        if: matrix.goos != 'windows' && matrix.goos != 'darwin'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.release.outputs.upload_url }}
+          asset_path: ./go-client/dist/trunecord-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.cgo == 0 && '-nocgo' || '' }}
+          asset_name: trunecord-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.cgo == 0 && '-nocgo' || '' }}
           asset_content_type: application/octet-stream

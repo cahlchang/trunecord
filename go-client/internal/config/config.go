@@ -15,9 +15,9 @@ type Config struct {
 
 func Load() (*Config, error) {
 	config := &Config{
-		WebSocketPort: getEnvOrDefault("WEBSOCKET_PORT", "8765"),
-		WebPort:       getEnvOrDefault("WEB_PORT", "48766"),
-		AuthAPIURL:    getEnvOrDefault("AUTH_API_URL", "https://we80ad68l7.execute-api.ap-northeast-1.amazonaws.com/prod"),
+		WebSocketPort:   getEnvOrDefault("WEBSOCKET_PORT", "8765"),
+		WebPort:         getEnvOrDefault("WEB_PORT", "48766"),
+		AuthAPIURL:      getEnvOrDefault("AUTH_API_URL", "https://we80ad68l7.execute-api.ap-northeast-1.amazonaws.com/prod"),
 		DiscordBotToken: os.Getenv("DISCORD_BOT_TOKEN"), // Optional, will be fetched from auth server
 	}
 

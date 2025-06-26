@@ -153,7 +153,7 @@ trunecord requires the Opus audio codec for streaming audio to Discord. This req
 
 2. Open MSYS2 MinGW 64-bit terminal and install dependencies:
 ```bash
-pacman -S mingw-w64-x86_64-opus mingw-w64-x86_64-pkg-config mingw-w64-x86_64-gcc
+pacman -S mingw-w64-x86_64-opus mingw-w64-x86_64-pkg-config mingw-w64-x86_64-gcc mingw-w64-x86_64-go
 ```
 
 3. Build with CGO enabled:

@@ -29,6 +29,33 @@ CGO_ENABLED=1 go build ./cmd/
 
 See the [Building from Source](#building-from-source) section below for detailed instructions.
 
+## ⚠️ Important Note about Audio Support
+
+### Supported Platforms (with Audio)
+The following pre-built binaries include **full audio streaming support**:
+- **Windows (AMD64)**: `trunecord-windows-amd64.zip` (includes required DLL files)
+- **macOS (Intel)**: `trunecord-darwin-amd64.dmg` (double-click to install)
+- **macOS (Apple Silicon)**: `trunecord-darwin-arm64.dmg` (double-click to install)
+- **Linux (AMD64)**: `trunecord-linux-amd64`
+
+### Limited Support (No Audio)
+The following binaries are provided for compatibility but **do not support audio streaming**:
+- **Linux ARM64**: `trunecord-linux-arm64-nocgo`
+
+### Building from Source
+For platforms without audio support, you must compile from source:
+
+```bash
+# Install opus library first:
+# macOS: brew install opus
+# Ubuntu/Debian: sudo apt-get install libopus-dev
+# Windows: See building instructions below
+
+CGO_ENABLED=1 go build ./cmd/
+```
+
+See the [Building from Source](#building-from-source) section below for detailed instructions.
+
 ## Prerequisites
 
 - Go 1.21 or later
@@ -62,20 +89,27 @@ go-client/
 
 ## Quick Start
 
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/trunecord.git
-cd trunecord/go-client
+### macOS
+1. Download the `.dmg` file for your platform (Intel or Apple Silicon)
+2. Double-click the DMG file to mount it
+3. Drag the trunecord app to your Applications folder
+4. Double-click the app to launch (it will open in Terminal)
+5. Open http://localhost:48766 in your browser
+6. Follow the setup steps
 
-# Install dependencies
-go mod download
+### Windows
+1. Download `trunecord-windows-amd64.zip`
+2. Extract the ZIP file to a folder
+3. Double-click `trunecord-windows-amd64.exe`
+4. Open http://localhost:48766 in your browser
+5. Follow the setup steps
 
-# Build for your current platform
-go build -o trunecord ./cmd
-
-# Run the application
-./trunecord
-```
+### Linux
+1. Download the binary for your platform
+2. Make it executable: `chmod +x trunecord-linux-amd64`
+3. Run the binary: `./trunecord-linux-amd64`
+4. Open http://localhost:48766 in your browser
+5. Follow the setup steps
 
 ## Building from Source
 
