@@ -176,6 +176,39 @@ app.get('/api/guilds/:guildId/channels', async (req, res) => {
   }
 });
 
+// Get bot token (protected endpoint)
+app.get('/api/bot-token', async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
+  
+  try {
+    // Verify JWT token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Log access for security auditing
+    console.log(`Bot token accessed by user ${decoded.userId} at ${new Date().toISOString()}`);
+    
+    // Return bot token over HTTPS
+    // The token is protected by:
+    // 1. JWT authentication requirement
+    // 2. HTTPS encryption in transit
+    // 3. Client-side memory-only storage (no persistence)
+    res.json({ 
+      botToken: process.env.DISCORD_BOT_TOKEN,
+      warning: 'This token must not be stored persistently. Keep it in memory only.'
+    });
+  } catch (error) {
+    if (error.name === 'JsonWebTokenError') {
+      res.status(401).json({ error: 'Invalid token' });
+    } else {
+      res.status(500).json({ error: 'Failed to get bot token' });
+    }
+  }
+});
+
 // Helper function to get bot's guilds
 async function getBotGuilds() {
   try {

@@ -1,4 +1,4 @@
-# Music to Discord
+# ♫trunecord (Music to Discord)
 
 Stream YouTube Music (and other services) audio to Discord voice channels.
 

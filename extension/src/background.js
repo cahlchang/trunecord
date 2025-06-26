@@ -2,9 +2,19 @@
 let ws = null;
 let isStreaming = false;
 let offscreenDocument = null;
+let isCreatingOffscreen = false;
+let capturePromise = null;
 
 // Create offscreen document if needed
 async function createOffscreenDocument() {
+  // Prevent multiple simultaneous creation attempts
+  if (isCreatingOffscreen) {
+    console.log('Offscreen document creation already in progress');
+    return;
+  }
+  
+  isCreatingOffscreen = true;
+  
   try {
     if (await chrome.offscreen.hasDocument()) {
       await chrome.offscreen.closeDocument();
@@ -14,11 +24,16 @@ async function createOffscreenDocument() {
     // Document doesn't exist, continue
   }
   
-  await chrome.offscreen.createDocument({
-    url: 'src/offscreen.html',
-    reasons: ['USER_MEDIA'],
-    justification: 'Capturing audio from tab'
-  });
+  try {
+    await chrome.offscreen.createDocument({
+      url: 'src/offscreen.html',
+      reasons: ['USER_MEDIA'],
+      justification: 'Capturing audio from tab'
+    });
+    console.log('Offscreen document created successfully');
+  } finally {
+    isCreatingOffscreen = false;
+  }
 }
 
 // Connect to local client
@@ -49,10 +64,28 @@ function connectToLocalClient() {
 
 // Start audio capture
 async function startCapture(tabId) {
+  // If already capturing, return existing promise
+  if (capturePromise) {
+    console.log('Capture already in progress, waiting for completion');
+    return capturePromise;
+  }
+  
+  capturePromise = doStartCapture(tabId);
+  
+  // Clean up promise when done
+  capturePromise.finally(() => {
+    capturePromise = null;
+  });
+  
+  return capturePromise;
+}
+
+async function doStartCapture(tabId) {
   try {
     if (isStreaming) {
+      console.log('Stopping existing capture first');
       await stopCapture();
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
     
     // Connect to local client first
@@ -60,6 +93,9 @@ async function startCapture(tabId) {
     
     // Create offscreen document
     await createOffscreenDocument();
+    
+    // Wait a bit for offscreen document to be ready
+    await new Promise(resolve => setTimeout(resolve, 100));
     
     // Get media stream ID for the tab
     const streamId = await chrome.tabCapture.getMediaStreamId({
@@ -79,6 +115,10 @@ async function startCapture(tabId) {
     
     isStreaming = true;
     
+    // Notify local client about stream start
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'streamStart' }));
+    }
     
     chrome.tabs.sendMessage(tabId, {
       action: 'streamingStateChanged',
@@ -87,14 +127,23 @@ async function startCapture(tabId) {
     
     return true;
   } catch (error) {
-    stopCapture();
+    console.error('Capture error:', error);
+    await stopCapture();
     throw error;
   }
 }
 
 async function sendMessageToOffscreen(message) {
   return new Promise((resolve, reject) => {
+    let timeoutId;
+    
+    const cleanup = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+    
     chrome.runtime.sendMessage(message, (response) => {
+      cleanup();
+      
       if (chrome.runtime.lastError) {
         reject(new Error(chrome.runtime.lastError.message));
       } else if (!response) {
@@ -104,7 +153,8 @@ async function sendMessageToOffscreen(message) {
       }
     });
     
-    setTimeout(() => {
+    timeoutId = setTimeout(() => {
+      cleanup();
       reject(new Error('Timeout waiting for offscreen response'));
     }, 5000);
   });
@@ -112,30 +162,51 @@ async function sendMessageToOffscreen(message) {
 
 // Stop audio capture
 async function stopCapture() {
-  try {
-    // Send message to offscreen document to stop capture
-    if (await chrome.offscreen.hasDocument()) {
-      await sendMessageToOffscreen({
-        action: 'stopCapture'
-      });
-      
-      // Close the offscreen document after stopping
-      await chrome.offscreen.closeDocument();
-    }
-  } catch (error) {
-    // Error stopping capture, continue cleanup
+  if (!isStreaming) {
+    console.log('Not currently streaming, nothing to stop');
+    return;
   }
   
   isStreaming = false;
+  capturePromise = null;
   
+  try {
+    // Send message to offscreen document to stop capture
+    if (await chrome.offscreen.hasDocument()) {
+      try {
+        await sendMessageToOffscreen({
+          action: 'stopCapture'
+        });
+      } catch (e) {
+        console.error('Error sending stop message to offscreen:', e);
+      }
+      
+      // Close the offscreen document after stopping
+      await new Promise(resolve => setTimeout(resolve, 100));
+      await chrome.offscreen.closeDocument();
+    }
+  } catch (error) {
+    console.error('Error stopping capture:', error);
+  }
+  
+  // Notify local client about stream stop
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'streamStop' }));
+  }
   
   // Notify all YouTube Music tabs
-  const tabs = await chrome.tabs.query({ url: "https://music.youtube.com/*" });
-  for (const tab of tabs) {
-    chrome.tabs.sendMessage(tab.id, {
-      action: 'streamingStateChanged',
-      isStreaming: false
-    });
+  try {
+    const tabs = await chrome.tabs.query({ url: "https://music.youtube.com/*" });
+    for (const tab of tabs) {
+      chrome.tabs.sendMessage(tab.id, {
+        action: 'streamingStateChanged',
+        isStreaming: false
+      }).catch(() => {
+        // Tab might not be ready, ignore
+      });
+    }
+  } catch (error) {
+    console.error('Error notifying tabs:', error);
   }
 }
 
@@ -147,6 +218,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         type: 'audio',
         audio: request.audio
       }));
+    }
+    return false;
+  }
+  
+  if (request.type === 'streamPause') {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'streamPause' }));
+    }
+    return false;
+  }
+  
+  if (request.type === 'streamResume') {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'streamResume' }));
     }
     return false;
   }
@@ -202,3 +287,12 @@ chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
 chrome.runtime.onInstalled.addListener(() => {
   // Extension installed
 });
+
+// Export for testing
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    startCapture,
+    stopCapture,
+    connectToLocalClient
+  };
+}

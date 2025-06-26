@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>trunecord</h1>
+            <p>Stream YouTube Music to Discord voice channels</p>
+        </header>
+
+        <main>
+            {{if .Error}}
+                <div class="alert alert-error">{{.Error}}</div>
+            {{end}}
+
+            {{if not .Token}}
+                <div class="auth-section">
+                    <h2>Authenticate with Discord</h2>
+                    <p>To start streaming, you need to authenticate with Discord first.</p>
+                    <a href="/auth" class="btn btn-primary">Authenticate with Discord</a>
+                </div>
+            {{else}}
+                <div class="control-section">
+                    <h2>Discord Voice Connection</h2>
+                    
+                    <div class="status-bar">
+                        <div class="status-item">
+                            <span class="status-label">Connection:</span>
+                            <span id="connection-status" class="status-value">Disconnected</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Streaming:</span>
+                            <span id="streaming-status" class="status-value">Stopped</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="guild-select">Select Server:</label>
+                        <select id="guild-select" class="form-control">
+                            <option value="">Choose a server...</option>
+                            {{range .Guilds}}
+                                <option value="{{.ID}}">{{.Name}}</option>
+                            {{end}}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="channel-select">Select Voice Channel:</label>
+                        <select id="channel-select" class="form-control" disabled>
+                            <option value="">Choose a voice channel...</option>
+                        </select>
+                    </div>
+
+                    <div class="button-group">
+                        <button id="connect-btn" class="btn btn-success" disabled onclick="connect()">Connect</button>
+                        <button id="disconnect-btn" class="btn btn-danger" disabled onclick="disconnect()">Disconnect</button>
+                    </div>
+                </div>
+
+                <div class="info-section">
+                    <h3>Instructions</h3>
+                    <ol>
+                        <li>Select a Discord server from the dropdown</li>
+                        <li>Choose a voice channel where you want to stream</li>
+                        <li>Click "Connect" to join the voice channel</li>
+                        <li>Go to YouTube Music and click the Discord button to start streaming</li>
+                    </ol>
+                </div>
+            {{end}}
+        </main>
+
+        <footer>
+            <p>Make sure the Chrome extension is installed and YouTube Music is open in a tab.</p>
+        </footer>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

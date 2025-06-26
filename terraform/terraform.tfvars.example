@@ -1,7 +1,7 @@
 # AWS Configuration
 aws_region   = "ap-northeast-1"
 environment  = "prod"
-project_name = "music-to-discord"
+project_name = "trunecord"
 
 # Discord OAuth Configuration
 discord_client_id     = "YOUR_DISCORD_CLIENT_ID"

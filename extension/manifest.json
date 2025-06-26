@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "YouTube Music to Discord",
+  "name": "Trunecord",
   "version": "1.0.0",
   "description": "Stream YouTube Music audio to Discord voice channels",
   "permissions": [

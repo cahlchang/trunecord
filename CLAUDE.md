@@ -98,7 +98,7 @@ npm run dev         # Start bot with auto-reload
 ## Project Structure
 
 ```
-music-to-discord/
+trunecord/
 ├── extension/              # Chrome extension
 │   ├── manifest.json      # Extension manifest (Manifest V3)
 │   ├── src/

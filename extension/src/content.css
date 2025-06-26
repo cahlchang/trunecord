@@ -85,8 +85,23 @@
 ytmusic-player-bar .discord-stream-button {
   height: 28px;
   padding: 0 10px;
+  margin-left: 16px;
   margin-right: 8px;
   align-self: center;
+  flex-shrink: 0;
+}
+
+/* Ensure proper spacing in content info wrapper */
+.content-info-wrapper .discord-stream-button {
+  margin-left: 20px;
+  margin-right: 12px;
+  vertical-align: middle;
+}
+
+/* Spacing after time info */
+.time-info + .discord-stream-button,
+ytmusic-player-bar-time-info + .discord-stream-button {
+  margin-left: 24px;
 }
 
 /* Dark mode compatibility */

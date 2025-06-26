@@ -1,0 +1,308 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #f5f5f5;
+    color: #333;
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: white;
+    min-height: 100vh;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+header {
+    text-align: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #eee;
+}
+
+header h1 {
+    font-size: 2.5em;
+    color: #5865f2;
+    margin-bottom: 10px;
+}
+
+header p {
+    color: #666;
+    font-size: 1.1em;
+}
+
+main {
+    margin-bottom: 30px;
+}
+
+.alert {
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-weight: 500;
+}
+
+.alert-error {
+    background-color: #fee;
+    color: #c33;
+    border: 1px solid #fcc;
+}
+
+.alert-success {
+    background-color: #efe;
+    color: #363;
+    border: 1px solid #cfc;
+}
+
+.auth-section {
+    text-align: center;
+    background-color: #f8f9fa;
+    padding: 40px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+}
+
+.auth-section h2 {
+    color: #5865f2;
+    margin-bottom: 15px;
+}
+
+.auth-section p {
+    color: #666;
+    margin-bottom: 25px;
+    font-size: 1.1em;
+}
+
+.control-section {
+    background-color: #f8f9fa;
+    padding: 30px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+}
+
+.control-section h2 {
+    color: #5865f2;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.status-bar {
+    display: flex;
+    justify-content: space-around;
+    background-color: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 25px;
+    border: 1px solid #ddd;
+}
+
+.status-item {
+    text-align: center;
+}
+
+.status-label {
+    display: block;
+    font-weight: 600;
+    color: #666;
+    font-size: 0.9em;
+    margin-bottom: 5px;
+}
+
+.status-value {
+    display: block;
+    font-size: 1.1em;
+    font-weight: 500;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #333;
+}
+
+.form-control {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 1em;
+    background-color: white;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #5865f2;
+    box-shadow: 0 0 0 2px rgba(88, 101, 242, 0.2);
+}
+
+.form-control:disabled {
+    background-color: #f5f5f5;
+    color: #999;
+    cursor: not-allowed;
+}
+
+.button-group {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 25px;
+}
+
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.btn-primary {
+    background-color: #5865f2;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #4752c4;
+}
+
+.btn-success {
+    background-color: #57f287;
+    color: white;
+}
+
+.btn-success:hover {
+    background-color: #3ba55c;
+}
+
+.btn-danger {
+    background-color: #ed4245;
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #c23616;
+}
+
+.info-section {
+    background-color: #fff;
+    padding: 25px;
+    border-radius: 8px;
+    border: 1px solid #eee;
+    margin-bottom: 20px;
+}
+
+.info-section h3 {
+    color: #5865f2;
+    margin-bottom: 15px;
+}
+
+.info-section ol, .info-section ul {
+    padding-left: 20px;
+}
+
+.info-section li {
+    margin-bottom: 8px;
+    color: #555;
+}
+
+.guild-list {
+    background-color: #fff;
+    padding: 25px;
+    border-radius: 8px;
+    border: 1px solid #eee;
+    margin-bottom: 20px;
+}
+
+.guild-list h3 {
+    color: #5865f2;
+    margin-bottom: 15px;
+}
+
+.guild-list ul {
+    list-style: none;
+    padding: 0;
+}
+
+.guild-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+}
+
+.guild-item:last-child {
+    border-bottom: none;
+}
+
+.guild-item strong {
+    color: #333;
+}
+
+.guild-id {
+    font-size: 0.9em;
+    color: #666;
+    font-family: 'Monaco', 'Menlo', monospace;
+}
+
+footer {
+    text-align: center;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+    color: #666;
+    font-size: 0.9em;
+}
+
+@media (max-width: 600px) {
+    .container {
+        padding: 15px;
+    }
+    
+    header h1 {
+        font-size: 2em;
+    }
+    
+    .status-bar {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .button-group {
+        flex-direction: column;
+    }
+    
+    .guild-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+}
