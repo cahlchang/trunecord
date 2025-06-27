@@ -172,3 +172,27 @@ jobs:
           asset_path: ./go-client/dist/trunecord-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.cgo == 0 && '-nocgo' || '' }}
           asset_name: trunecord-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.cgo == 0 && '-nocgo' || '' }}
           asset_content_type: application/octet-stream
+
+  build-extension:
+    name: Build Chrome Extension
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Package Chrome Extension
+        run: |
+          cd extension
+          chmod +x scripts/package.sh
+          ./scripts/package.sh
+
+      - name: Upload Chrome Extension
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.release.outputs.upload_url }}
+          asset_path: ./dist/trunecord-extension.zip
+          asset_name: trunecord-chrome-extension.zip
+          asset_content_type: application/zip
