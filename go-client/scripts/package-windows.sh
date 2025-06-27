@@ -27,6 +27,12 @@ if [ -d "/mingw64/bin" ]; then
     cp /mingw64/bin/libwinpthread-1.dll "$PACKAGE_DIR/" || true
 fi
 
+# Copy license file
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -f "$SCRIPT_DIR/../LICENSE-THIRD-PARTY" ]; then
+    cp "$SCRIPT_DIR/../LICENSE-THIRD-PARTY" "$PACKAGE_DIR/"
+fi
+
 # Create README
 cat > "$PACKAGE_DIR/README.txt" << EOF
 trunecord (Music to Discord) for Windows
@@ -40,6 +46,9 @@ To run:
 
 The included DLL files are required for audio streaming support.
 Do not remove them.
+
+License information for included third-party libraries can be found in
+LICENSE-THIRD-PARTY file.
 
 For more information, visit:
 https://github.com/cahlchang/trunecord
