@@ -24,8 +24,8 @@ func setupMenuBarSystray(app *Application) {
 }
 
 func onReady(app *Application) {
-	// Set icon
-	systray.SetIcon(icon.Data)
+	// Set icon - use ICO format for Windows
+	systray.SetIcon(icon.DataICO)
 	systray.SetTooltip("trunecord - Music to Discord")
 	
 	// Add menu items

@@ -66,6 +66,20 @@ jobs:
         with:
           go-version: '1.21'
 
+      - name: Set up Python (for ICO generation)
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install Pillow for ICO generation
+        run: pip install Pillow
+
+      - name: Generate ICO file
+        run: |
+          cd go-client
+          chmod +x scripts/create-ico-ci.sh
+          ./scripts/create-ico-ci.sh
+
       - name: Install dependencies (Ubuntu)
         if: matrix.goos == 'linux' && matrix.cgo == 1
         run: |

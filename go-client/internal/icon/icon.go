@@ -6,3 +6,8 @@ import _ "embed"
 //
 //go:embed icon.png
 var Data []byte
+
+// DataICO contains the embedded icon data in ICO format for Windows
+//
+//go:embed icon.ico
+var DataICO []byte
