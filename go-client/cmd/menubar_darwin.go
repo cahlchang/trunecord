@@ -9,86 +9,84 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"time"
 
-	"github.com/caseymrm/menuet"
+	"github.com/getlantern/systray"
+	"trunecord/internal/icon"
 )
 
-func setupMenuBar(app *Application) {
-	go func() {
-		menuet.App().Label = "♫"
-		menuet.App().Children = func() []menuet.MenuItem {
-			items := []menuet.MenuItem{
-				{
-					Text: "trunecord",
-					Disabled: true,
-				},
-				{
-					Type: menuet.Separator,
-				},
-			}
+func setupMenuBarSystray(app *Application) {
+	go systray.Run(func() {
+		onReady(app)
+	}, onExit)
+}
 
-			// Add status
+func onReady(app *Application) {
+	// Set icon
+	systray.SetIcon(icon.Data)
+	systray.SetTooltip("trunecord - Music to Discord")
+	
+	// Add menu items
+	mTitle := systray.AddMenuItem("trunecord", "")
+	mTitle.Disable()
+	systray.AddSeparator()
+	
+	// Status items (will be updated dynamically)
+	mStatus := systray.AddMenuItem("○ Not Connected", "")
+	mStatus.Disable()
+	
+	mStreamStatus := systray.AddMenuItem("", "")
+	mStreamStatus.Hide()
+	
+	systray.AddSeparator()
+	
+	// Action items
+	mOpenWeb := systray.AddMenuItem("Open Web Interface", "Open the web interface")
+	mViewLogs := systray.AddMenuItem("View Logs", "View application logs")
+	systray.AddSeparator()
+	mQuit := systray.AddMenuItem("Quit trunecord", "Quit the application")
+	
+	// Handle menu clicks
+	go func() {
+		for {
+			select {
+			case <-mOpenWeb.ClickedCh:
+				openBrowser(fmt.Sprintf("http://localhost:%s", app.config.WebPort))
+			case <-mViewLogs.ClickedCh:
+				exec.Command("open", "-a", "Console", fmt.Sprintf("%s/Library/Logs/trunecord/trunecord.log", os.Getenv("HOME"))).Start()
+			case <-mQuit.ClickedCh:
+				log.Println("Quitting trunecord from menu bar")
+				if app.streamer.IsConnected() {
+					app.streamer.Disconnect()
+				}
+				systray.Quit()
+			}
+		}
+	}()
+	
+	// Update status periodically
+	go func() {
+		for {
 			if app.streamer.IsConnected() {
-				items = append(items, menuet.MenuItem{
-					Text: fmt.Sprintf("✓ Connected to Discord"),
-					Disabled: true,
-				})
+				mStatus.SetTitle("✓ Connected to Discord")
+				mStreamStatus.Show()
 				if app.wsServer.IsStreaming() {
-					items = append(items, menuet.MenuItem{
-						Text: "♫ Streaming",
-						Disabled: true,
-					})
+					mStreamStatus.SetTitle("♫ Streaming")
 				} else {
-					items = append(items, menuet.MenuItem{
-						Text: "⏸ Not Streaming",
-						Disabled: true,
-					})
+					mStreamStatus.SetTitle("⏸ Not Streaming")
 				}
 			} else {
-				items = append(items, menuet.MenuItem{
-					Text: "○ Not Connected",
-					Disabled: true,
-				})
+				mStatus.SetTitle("○ Not Connected")
+				mStreamStatus.Hide()
 			}
-
-			items = append(items, menuet.MenuItem{
-				Type: menuet.Separator,
-			})
-
-			// Add actions
-			items = append(items, 
-				menuet.MenuItem{
-					Text: "Open Web Interface",
-					Clicked: func() {
-						openBrowser(fmt.Sprintf("http://localhost:%s", app.config.WebPort))
-					},
-				},
-				menuet.MenuItem{
-					Text: "View Logs",
-					Clicked: func() {
-						exec.Command("open", "-a", "Console", fmt.Sprintf("%s/Library/Logs/trunecord/trunecord.log", os.Getenv("HOME"))).Start()
-					},
-				},
-				menuet.MenuItem{
-					Type: menuet.Separator,
-				},
-				menuet.MenuItem{
-					Text: "Quit trunecord",
-					Clicked: func() {
-						log.Println("Quitting trunecord from menu bar")
-						if app.streamer.IsConnected() {
-							app.streamer.Disconnect()
-						}
-						menuet.App().Quit()
-					},
-				},
-			)
-
-			return items
+			// Update every 1 second
+			time.Sleep(1 * time.Second)
 		}
-
-		menuet.App().RunApplication()
 	}()
+}
+
+func onExit() {
+	// Cleanup
 }
 
 func openBrowser(url string) {
@@ -105,9 +103,14 @@ func openBrowser(url string) {
 }
 
 func runApp(app *Application) {
-	// Setup menu bar
-	setupMenuBar(app)
+	// Setup menu bar with systray
+	setupMenuBarSystray(app)
 	
 	// Run the main application logic
 	app.run()
+}
+
+func setupMenuBar(app *Application) {
+	// Deprecated: Using setupMenuBarSystray instead
+	setupMenuBarSystray(app)
 }
