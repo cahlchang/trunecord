@@ -1,10 +1,10 @@
-//go:build !darwin
-// +build !darwin
+//go:build !darwin && !windows
+// +build !darwin,!windows
 
 package main
 
 func setupMenuBar(app *Application) {
-	// Menu bar is only supported on macOS
+	// Menu bar/system tray is only supported on macOS and Windows
 }
 
 func runApp(app *Application) {
