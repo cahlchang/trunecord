@@ -16,7 +16,9 @@ import (
 )
 
 func setupMenuBarSystray(app *Application) {
-	go systray.Run(func() {
+	// systray.Run is blocking, so we need to run it in the main thread
+	// and run the app logic in a goroutine
+	systray.Run(func() {
 		onReady(app)
 	}, onExit)
 }
@@ -59,7 +61,7 @@ func onReady(app *Application) {
 				if app.streamer.IsConnected() {
 					app.streamer.Disconnect()
 				}
-				systray.Quit()
+				os.Exit(0)
 			}
 		}
 	}()
@@ -103,11 +105,11 @@ func openBrowser(url string) {
 }
 
 func runApp(app *Application) {
-	// Setup menu bar with systray
-	setupMenuBarSystray(app)
+	// Run the main application logic in a goroutine
+	go app.run()
 	
-	// Run the main application logic
-	app.run()
+	// Setup menu bar with systray (this blocks)
+	setupMenuBarSystray(app)
 }
 
 func setupMenuBar(app *Application) {
