@@ -47,9 +47,33 @@ Just click the link above and click "Add to Chrome" - it's that easy!
 
 ### Step 3: Start the Local Client
 
+#### Option A: Download Pre-built Binary (Recommended)
+
+1. Download the latest release for your platform from **[Trunecord Releases](https://github.com/cahlchang/trunecord/releases)**
+   - **Windows**: `trunecord-windows-amd64.exe`
+   - **macOS (Intel)**: `trunecord-darwin-amd64`
+   - **macOS (Apple Silicon)**: `trunecord-darwin-arm64`
+   - **Linux**: `trunecord-linux-amd64`
+
+2. Make the binary executable (macOS/Linux only):
+   ```bash
+   chmod +x trunecord-darwin-amd64  # or your platform's binary
+   ```
+
+3. Run the client:
+   ```bash
+   # macOS/Linux
+   ./trunecord-darwin-amd64  # or your platform's binary
+   
+   # Windows
+   trunecord-windows-amd64.exe
+   ```
+
+#### Option B: Build from Source (For Developers)
+
 ```bash
-# Clone the repository (if you haven't already)
-git clone https://github.com/yourusername/trunecord.git
+# Clone the repository
+git clone https://github.com/cahlchang/trunecord.git
 cd trunecord/go-client
 
 # Run the Go client
