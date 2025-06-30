@@ -30,6 +30,14 @@ The bot requires the following permissions:
 
 ### Step 2: Install the Chrome Extension
 
+#### Option A: Chrome Web Store (Recommended)
+
+🎉 **[Install Trunecord from Chrome Web Store](https://chromewebstore.google.com/detail/trunecord/dhmegdkoembgmlhekieedhkilbnjmjee)**
+
+Just click the link above and click "Add to Chrome" - it's that easy!
+
+#### Option B: Manual Installation (For Developers)
+
 1. Download the latest `trunecord-extension.zip` from the releases
 2. Extract the ZIP file to a folder on your computer
 3. Open Chrome and navigate to `chrome://extensions/`
