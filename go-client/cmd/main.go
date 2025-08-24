@@ -160,7 +160,7 @@ func (a *App) HandleProtocol(protocolURL string) error {
 
 // IsAuthenticated checks if the user is authenticated
 func (a *App) IsAuthenticated() bool {
-	return a.userToken != ""
+	return strings.TrimSpace(a.userToken) != ""
 }
 
 // GetGuilds returns the list of Discord guilds (servers) the bot has access to
