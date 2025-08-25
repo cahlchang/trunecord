@@ -2,12 +2,18 @@ package websocket
 
 import (
 	"encoding/base64"
+	"fmt"
 	"log"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+)
+
+const (
+	// Expected extension version
+	ExpectedExtensionVersion = "1.1.0"
 )
 
 type Server struct {
@@ -23,8 +29,9 @@ type Server struct {
 }
 
 type Message struct {
-	Type  string `json:"type"`
-	Audio string `json:"audio,omitempty"`
+	Type    string `json:"type"`
+	Audio   string `json:"audio,omitempty"`
+	Version string `json:"version,omitempty"`
 }
 
 type StatusResponse struct {
@@ -70,6 +77,15 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		s.clientMutex.Unlock()
 	}()
 
+	// Send handshake request
+	handshakeRequest := map[string]string{
+		"type": "handshake",
+	}
+	if err := conn.WriteJSON(handshakeRequest); err != nil {
+		log.Printf("Failed to send handshake request: %v", err)
+		return
+	}
+
 	for {
 		var msg Message
 		err := conn.ReadJSON(&msg)
@@ -81,6 +97,28 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		}
 
 		switch msg.Type {
+		case "handshake":
+			// Check extension version
+			if msg.Version != "" {
+				if msg.Version != ExpectedExtensionVersion {
+					warningMsg := fmt.Sprintf("⚠️ Chrome拡張機能のバージョンが不一致です\n期待: v%s\n実際: v%s\n\n拡張機能を更新してください", 
+						ExpectedExtensionVersion, msg.Version)
+					log.Printf("\n%s\n", warningMsg)
+					
+					// Send warning to extension
+					warningResponse := map[string]string{
+						"type": "versionMismatch",
+						"message": warningMsg,
+						"expectedVersion": ExpectedExtensionVersion,
+						"actualVersion": msg.Version,
+					}
+					if err := conn.WriteJSON(warningResponse); err != nil {
+						log.Printf("Failed to send version warning: %v", err)
+					}
+				} else {
+					log.Printf("✅ Chrome拡張機能バージョン確認: v%s", msg.Version)
+				}
+			}
 		case "audio":
 			if msg.Audio != "" {
 				// Mark as streaming when we receive audio data

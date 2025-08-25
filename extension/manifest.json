@@ -9,11 +9,15 @@
     "tabs",
     "tabCapture",
     "offscreen",
-    "storage"
+    "storage",
+    "notifications"
   ],
   "host_permissions": [
     "https://music.youtube.com/*"
   ],
+  "icons": {
+    "128": "icons/icon.svg"
+  },
   "background": {
     "service_worker": "src/background.js"
   },

@@ -78,7 +78,26 @@ function connectToLocalClient() {
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        if (data.type === 'pong') {
+        if (data.type === 'handshake') {
+          // Server requested handshake, send version info
+          const manifest = chrome.runtime.getManifest();
+          ws.send(JSON.stringify({
+            type: 'handshake',
+            version: manifest.version
+          }));
+          console.log('Sent handshake with version:', manifest.version);
+        } else if (data.type === 'versionMismatch') {
+          // Version mismatch warning from server
+          console.warn('Version mismatch:', data.message);
+          // Show notification to user
+          chrome.notifications.create('versionMismatch', {
+            type: 'basic',
+            iconUrl: chrome.runtime.getURL('icons/icon.svg'),
+            title: 'trunecord - バージョン不一致',
+            message: `拡張機能の更新が必要です。期待: v${data.expectedVersion}, 実際: v${data.actualVersion}`,
+            priority: 2
+          });
+        } else if (data.type === 'pong') {
           // Response to our ping - connection is alive
         } else if (data.type === 'waitingModeStop') {
           // Stop streaming due to waiting mode (someone joined voice channel)
