@@ -3,7 +3,7 @@
 # Comprehensive macOS packaging script for trunecord
 # Creates .app bundle, DMG, and optionally signs the application
 
-set -e
+set -euo pipefail
 
 # Configuration
 APP_NAME="trunecord"
@@ -197,9 +197,12 @@ cat > "$APP_BUNDLE/Contents/Info.plist" << EOF
     </array>
     <key>NSAppTransportSecurity</key>
     <dict>
-        <key>NSAllowsArbitraryLoads</key>
-        <true/>
+        <!-- Allow local networking for development server -->
         <key>NSAllowsLocalNetworking</key>
+        <true/>
+        <!-- Allow arbitrary loads only if needed for Discord OAuth -->
+        <!-- Consider restricting to specific domains in production -->
+        <key>NSAllowsArbitraryLoads</key>
         <true/>
     </dict>
     <key>NSMicrophoneUsageDescription</key>
@@ -238,16 +241,22 @@ if [ "$SIGN_APP" = true ]; then
     if [ "$SIGN_APP" = true ]; then
         log_info "Signing application with: $DEVELOPER_ID"
         
+        # Sign frameworks first if they exist
+        if [ -d "$APP_BUNDLE/Contents/Frameworks" ]; then
+            find "$APP_BUNDLE/Contents/Frameworks" -name "*.framework" -exec \
+                codesign --force --sign "$DEVELOPER_ID" --options runtime {} \;
+        fi
+        
         # Sign the binary
-        codesign --force --deep --sign "$DEVELOPER_ID" \
+        codesign --force --sign "$DEVELOPER_ID" \
             --entitlements entitlements.plist \
             --options runtime \
             "$APP_BUNDLE/Contents/MacOS/trunecord" 2>/dev/null || \
-        codesign --force --deep --sign "$DEVELOPER_ID" \
+        codesign --force --sign "$DEVELOPER_ID" \
             "$APP_BUNDLE/Contents/MacOS/trunecord"
         
-        # Sign the entire app bundle
-        codesign --force --deep --sign "$DEVELOPER_ID" \
+        # Sign the entire app bundle (avoid --deep as last resort)
+        codesign --force --sign "$DEVELOPER_ID" \
             --entitlements entitlements.plist \
             --options runtime \
             "$APP_BUNDLE" 2>/dev/null || \
@@ -321,7 +330,11 @@ log_success "ZIP created: $DIST_DIR/$APP_NAME-$VERSION-macOS.zip"
 # Calculate checksums
 log_info "Calculating checksums..."
 cd "$DIST_DIR"
-shasum -a 256 *.dmg *.zip > checksums.txt
+if ls *.dmg *.zip 1> /dev/null 2>&1; then
+    shasum -a 256 "$DMG_NAME.dmg" "$APP_NAME-$VERSION-macOS.zip" > checksums.txt
+else
+    log_warning "No files found for checksum calculation"
+fi
 cd ..
 
 # Final summary

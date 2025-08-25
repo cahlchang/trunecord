@@ -111,6 +111,7 @@ func TestApp_HandleAuthCallback(t *testing.T) {
 }
 
 // Test helper to create an app with specific userToken
+// Note: This helper is currently unused but kept for potential future test expansion
 func createAppWithToken(token string) *App {
 	return &App{
 		userToken: token,
@@ -135,6 +136,20 @@ func TestApp_AuthenticationFlow(t *testing.T) {
 		app.userToken = ""
 		if app.IsAuthenticated() {
 			t.Error("App should not be authenticated after clearing token")
+		}
+	})
+	
+	t.Run("helper function should create app with token correctly", func(t *testing.T) {
+		// Test the createAppWithToken helper function
+		token := "test-helper-token"
+		app := createAppWithToken(token)
+		
+		if app.userToken != token {
+			t.Errorf("Expected userToken to be %q, got %q", token, app.userToken)
+		}
+		
+		if !app.IsAuthenticated() {
+			t.Error("App created with token should be authenticated")
 		}
 	})
 }

@@ -87,9 +87,10 @@ func main() {
 	
 	// Connect WebSocket audio buffer to Discord streamer
 	go func() {
-		for {
-			// Wait for Discord connection
-			time.Sleep(1 * time.Second)
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+		
+		for range ticker.C {
 			if app.streamer.IsConnected() && !app.streamer.IsStreaming() {
 				// Start streaming with WebSocket audio buffer
 				err := app.streamer.StartStreaming(app.wsServer.GetAudioChannel())
@@ -697,9 +698,15 @@ func (a *App) handleDisconnect(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleStatus(w http.ResponseWriter, r *http.Request) {
+	discordStreaming := false
+	if a.streamer != nil {
+		discordStreaming = a.streamer.IsConnected() && a.streamer.IsStreaming()
+	}
+	
 	status := map[string]interface{}{
-		"connected": a.streamer.IsConnected(),
-		"streaming": a.wsServer.IsStreaming(),
+		"connected":        a.streamer.IsConnected(),
+		"streaming":        a.wsServer.IsStreaming(),
+		"discordStreaming": discordStreaming,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(status)
@@ -712,13 +719,14 @@ func checkExistingInstance() bool {
 		// Port is not in use, no existing instance
 		return false
 	}
-	conn.Close()
+	defer conn.Close()
 	// Port is in use, existing instance found
 	return true
 }
 
 func showNotification(title, message string) {
-	if runtime.GOOS == "darwin" {
+	switch runtime.GOOS {
+	case "darwin":
 		// Use osascript to show notification on macOS
 		script := fmt.Sprintf(`display notification "%s" with title "%s" sound name "Blow"`, message, title)
 		cmd := exec.Command("osascript", "-e", script)
@@ -731,6 +739,20 @@ func showNotification(title, message string) {
 				log.Printf("Failed to show notification: %v", err)
 			}
 		}
+	case "windows":
+		// On Windows, log to console (notifications require additional dependencies)
+		log.Printf("NOTIFICATION - %s: %s", title, message)
+	case "linux":
+		// On Linux, try notify-send if available
+		cmd := exec.Command("notify-send", title, message)
+		err := cmd.Run()
+		if err != nil {
+			// Fallback to console log
+			log.Printf("NOTIFICATION - %s: %s", title, message)
+		}
+	default:
+		// Default to console log
+		log.Printf("NOTIFICATION - %s: %s", title, message)
 	}
 }
 

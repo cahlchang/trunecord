@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 
@@ -22,7 +23,7 @@ import (
 	"trunecord/internal/websocket"
 )
 
-//go:embed all:frontend
+//go:embed ../web
 var assets embed.FS
 
 // App struct for Wails
@@ -66,12 +67,11 @@ func (a *App) startup(ctx context.Context) {
 		}
 	}()
 	
-	// HTTPサーバーは開発用のみなので本番では起動しない
-	// Start HTTP server for API endpoints (commented out for production)
-	// go func() {
-	// 	log.Println("Starting HTTP API server on port 8767")
-	// 	a.startHTTPServer()
-	// }()
+	// Start HTTP server for authentication callback
+	go func() {
+		log.Printf("Starting HTTP server on port %s", cfg.WebPort)
+		a.startHTTPServer()
+	}()
 	
 	// Protocol URL handling is now done only via onSecondInstance or manual authentication
 	// This ensures the app shows authentication screen on initial startup
@@ -80,23 +80,28 @@ func (a *App) startup(ctx context.Context) {
 
 // GetStatus returns the current status
 func (a *App) GetStatus() map[string]interface{} {
+	discordStreaming := false
+	if a.streamer != nil {
+		discordStreaming = a.streamer.IsConnected() && a.streamer.IsStreaming()
+	}
+	
 	return map[string]interface{}{
-		"connected":  a.streamer.IsConnected(),
-		"streaming":  a.wsServer.IsStreaming(),
-		"wsPort":     a.config.WebSocketPort,
-		"webPort":    a.config.WebPort,
+		"connected":        a.streamer.IsConnected(),
+		"streaming":        a.wsServer.IsStreaming(),
+		"discordStreaming": discordStreaming,
+		"wsPort":           a.config.WebSocketPort,
+		"webPort":          a.config.WebPort,
 	}
 }
 
 // GetAuthURL returns the auth URL for Discord OAuth with custom protocol redirect
 func (a *App) GetAuthURL() string {
-	// Get the base auth URL
-	baseURL := a.authClient.GetAuthURL()
+	if a.authClient == nil {
+		return ""
+	}
 	
-	// Append our custom redirect URI parameter
-	// This tells the Lambda server to redirect to our custom protocol
-	// Note: GetAuthURL returns /api/auth endpoint, so we need to use ? not &
-	finalURL := baseURL + "?redirect_protocol=trunecord"
+	// Get the base auth URL (already includes ?redirect_protocol=trunecord)
+	finalURL := a.authClient.GetAuthURL()
 	
 	log.Printf("Auth URL generated: %s", finalURL)
 	return finalURL
@@ -104,6 +109,10 @@ func (a *App) GetAuthURL() string {
 
 // HandleAuthCallback processes the OAuth callback and stores the user token
 func (a *App) HandleAuthCallback(callbackURL string) error {
+	if strings.TrimSpace(callbackURL) == "" {
+		return fmt.Errorf("callbackURL cannot be empty")
+	}
+	
 	tokenData, err := a.authClient.ParseAuthCallback(callbackURL)
 	if err != nil {
 		return fmt.Errorf("failed to parse auth callback: %v", err)
@@ -116,9 +125,11 @@ func (a *App) HandleAuthCallback(callbackURL string) error {
 	
 	// Emit event to frontend to notify authentication success
 	if a.ctx != nil {
-		runtime.EventsEmit(a.ctx, "auth:success", map[string]interface{}{
+		if err := runtime.EventsEmit(a.ctx, "auth:success", map[string]interface{}{
 			"authenticated": true,
-		})
+		}); err != nil {
+			log.Printf("Failed to emit auth:success event: %v", err)
+		}
 	}
 	
 	return nil
@@ -260,10 +271,98 @@ func (a *App) Quit() {
 }
 
 // startHTTPServer starts a local HTTP server for API endpoints
-// Deprecated: HTTPサーバーは開発用のみ。本番ではWailsバインディングを使用
-// func (a *App) startHTTPServer() {
-// 	// 開発用コードは cmd/api_standalone.go に移動
-// }
+// startHTTPServer starts the HTTP server for OAuth callback
+func (a *App) startHTTPServer() {
+	// Create a simple HTTP server for OAuth callback
+	mux := http.NewServeMux()
+	
+	// Handle OAuth callback
+	mux.HandleFunc("/auth/callback", func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("[HTTP] Auth callback received")
+		
+		// Parse query parameters
+		token := r.URL.Query().Get("token")
+		guildsJSON := r.URL.Query().Get("guilds")
+		
+		if token == "" {
+			http.Error(w, "No token provided", http.StatusBadRequest)
+			return
+		}
+		
+		// Store the token
+		a.userToken = token
+		
+		// Parse guilds if provided
+		if guildsJSON != "" {
+			var guilds []auth.Guild
+			if err := json.Unmarshal([]byte(guildsJSON), &guilds); err == nil {
+				// Store guilds for later use
+				log.Printf("[HTTP] Received %d guilds", len(guilds))
+			}
+		}
+		
+		// Emit event to frontend
+		if a.ctx != nil {
+			if err := runtime.EventsEmit(a.ctx, "auth:success", map[string]interface{}{
+				"authenticated": true,
+			}); err != nil {
+				log.Printf("Failed to emit auth:success event: %v", err)
+			}
+		}
+		
+		// Return success page
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(`
+			<!DOCTYPE html>
+			<html>
+			<head>
+				<title>Authentication Successful</title>
+				<style>
+					body {
+						font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+						display: flex;
+						justify-content: center;
+						align-items: center;
+						height: 100vh;
+						margin: 0;
+						background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+						color: white;
+					}
+					.container {
+						text-align: center;
+						padding: 2rem;
+						background: rgba(255, 255, 255, 0.1);
+						border-radius: 10px;
+						backdrop-filter: blur(10px);
+					}
+				</style>
+			</head>
+			<body>
+				<div class="container">
+					<h1>✅ Authentication Successful!</h1>
+					<p>You can now return to the trunecord app.</p>
+				</div>
+				<script>
+					// Try to focus the app window
+					setTimeout(() => {
+						window.close();
+					}, 2000);
+				</script>
+			</body>
+			</html>
+		`))
+	})
+	
+	// Start server
+	server := &http.Server{
+		Addr:    ":" + a.config.WebPort,
+		Handler: mux,
+	}
+	
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Printf("[HTTP] Server error: %v", err)
+	}
+}
 
 
 // onSecondInstance handles when a second instance is launched (e.g., via protocol URL)
@@ -280,9 +379,11 @@ func (a *App) onSecondInstance(secondInstanceArgs options.SecondInstanceData) {
 				log.Printf("[onSecondInstance] Failed to handle protocol URL: %v", err)
 				// Emit error event
 				if a.ctx != nil {
-					runtime.EventsEmit(a.ctx, "auth:error", map[string]interface{}{
+					if emitErr := runtime.EventsEmit(a.ctx, "auth:error", map[string]interface{}{
 						"error": err.Error(),
-					})
+					}); emitErr != nil {
+						log.Printf("Failed to emit auth:error event: %v", emitErr)
+					}
 				}
 			} else {
 				log.Printf("[onSecondInstance] Successfully handled protocol URL")
