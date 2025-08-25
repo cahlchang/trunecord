@@ -1,0 +1,35 @@
+{
+  "extensionName": {
+    "message": "Trunecord - 流式传输到Discord"
+  },
+  "extensionDescription": {
+    "message": "将YouTube Music音频流式传输到Discord"
+  },
+  "clickExtensionIcon": {
+    "message": "请点击工具栏中的扩展图标开始流式传输"
+  },
+  "startStreaming": {
+    "message": "开始流式传输"
+  },
+  "stopStreaming": {
+    "message": "停止流式传输"
+  },
+  "streaming": {
+    "message": "流式传输"
+  },
+  "stop": {
+    "message": "停止"
+  },
+  "failedToCommunicate": {
+    "message": "与扩展通信失败"
+  },
+  "failedToStartStreaming": {
+    "message": "启动流式传输失败"
+  },
+  "failedToConnect": {
+    "message": "连接失败。请确保本地客户端正在运行。"
+  },
+  "connectionLost": {
+    "message": "与本地客户端的连接丢失。流式传输已停止。"
+  }
+}

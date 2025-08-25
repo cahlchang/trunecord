@@ -45,7 +45,7 @@ func NewClient(baseURL string) *Client {
 }
 
 func (c *Client) GetAuthURL() string {
-	return fmt.Sprintf("%s/api/auth", c.BaseURL)
+	return fmt.Sprintf("%s/api/auth?redirect_protocol=http", c.BaseURL)
 }
 
 func (c *Client) ParseAuthCallback(callbackURL string) (*TokenData, error) {
@@ -74,7 +74,39 @@ func (c *Client) ParseAuthCallback(callbackURL string) (*TokenData, error) {
 	}, nil
 }
 
-func (c *Client) GetChannels(token, guildID string) ([]Channel, error) {
+func (c *Client) GetGuilds(token string) ([]Guild, error) {
+	url := fmt.Sprintf("%s/api/guilds", c.BaseURL)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %v", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Lambda returns array directly, not wrapped in object
+	var guilds []Guild
+	err = json.NewDecoder(resp.Body).Decode(&guilds)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode response: %v", err)
+	}
+
+	return guilds, nil
+}
+
+func (c *Client) GetChannels(guildID, token string) ([]Channel, error) {
 	url := fmt.Sprintf("%s/api/guilds/%s/channels", c.BaseURL, guildID)
 
 	req, err := http.NewRequest("GET", url, nil)

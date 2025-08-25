@@ -1,0 +1,21 @@
+{
+  "name": "trunecord-browser-app",
+  "version": "1.0.0",
+  "description": "Browser-based interface for trunecord - Stream YouTube Music to Discord",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "discord",
+    "youtube-music",
+    "streaming",
+    "audio"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

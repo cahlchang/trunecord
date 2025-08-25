@@ -25,7 +25,7 @@ type Streamer struct {
 
 func NewStreamer() *Streamer {
 	return &Streamer{
-		audioBuffer: make(chan []byte, 1000),
+		audioBuffer: make(chan []byte, 50), // Reduce buffer size for lower latency
 		stopChannel: make(chan bool),
 	}
 }
@@ -168,8 +168,8 @@ func (s *Streamer) streamAudio(audioChannel <-chan []byte) {
 	ticker := time.NewTicker(20 * time.Millisecond)
 	defer ticker.Stop()
 
-	// Add a small initial delay to build up buffer
-	time.Sleep(100 * time.Millisecond)
+	// Reduce initial delay for lower latency
+	time.Sleep(20 * time.Millisecond)
 
 	for {
 		select {

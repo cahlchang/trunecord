@@ -113,13 +113,13 @@ if [ "$BUILD_UNIVERSAL" = true ]; then
     CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build \
         -ldflags="-s -w -X main.Version=$VERSION" \
         -o "$BUILD_DIR/trunecord-amd64" \
-        cmd/main_standalone.go
+        cmd/main.go
     
     # Build for Apple Silicon
     CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build \
         -ldflags="-s -w -X main.Version=$VERSION" \
         -o "$BUILD_DIR/trunecord-arm64" \
-        cmd/main_standalone.go
+        cmd/main.go
     
     # Create universal binary
     lipo -create -output "$BUILD_DIR/trunecord" \
@@ -135,7 +135,7 @@ else
     CGO_ENABLED=1 go build \
         -ldflags="-s -w -X main.Version=$VERSION" \
         -o "$BUILD_DIR/trunecord" \
-        cmd/main_standalone.go
+        cmd/main.go
     
     log_success "Binary built for current architecture"
 fi

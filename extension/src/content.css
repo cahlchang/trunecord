@@ -67,18 +67,36 @@
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%) translateY(100px);
-  background-color: #2a2a2a;
+  background-color: #5865f2;
   color: white;
-  padding: 12px 24px;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  font-size: 14px;
+  padding: 16px 28px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  font-size: 15px;
+  font-weight: 500;
   z-index: 10000;
-  transition: transform 0.3s ease;
+  transition: all 0.3s ease;
+  max-width: 500px;
+  line-height: 1.5;
+  text-align: center;
 }
 
 .discord-notification.show {
   transform: translateX(-50%) translateY(0);
+}
+
+/* Warning style for extension icon message */
+.discord-notification.warning {
+  background-color: #ff9800;
+  font-size: 16px;
+  padding: 20px 32px;
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(calc(-50% - 10px)) translateY(0); }
+  20%, 40%, 60%, 80% { transform: translateX(calc(-50% + 10px)) translateY(0); }
 }
 
 /* YouTube Music specific adjustments */
@@ -106,6 +124,18 @@ ytmusic-player-bar .left-controls {
 /* Ensure middle controls fill remaining space */
 ytmusic-player-bar .middle-controls {
   flex: 1;
+}
+
+/* Disabled mode state */
+.discord-stream-button.disabled-mode {
+  background-color: #6c757d;
+  opacity: 0.8;
+}
+
+.discord-stream-button.disabled-mode:hover {
+  background-color: #5a6268;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
 }
 
 /* Dark mode compatibility */

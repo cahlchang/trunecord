@@ -4,6 +4,8 @@ let isStreaming = false;
 let offscreenDocument = null;
 let isCreatingOffscreen = false;
 let capturePromise = null;
+let reconnectInterval = null;
+let connectionCheckInterval = null;
 
 // Create offscreen document if needed
 async function createOffscreenDocument() {
@@ -42,21 +44,51 @@ function connectToLocalClient() {
     return Promise.resolve();
   }
   
+  // Clear any existing intervals
+  clearReconnectInterval();
+  clearConnectionCheckInterval();
+  
   return new Promise((resolve, reject) => {
     ws = new WebSocket('ws://localhost:8765');
     
     ws.onopen = () => {
+      console.log('WebSocket connected to local client');
+      startConnectionCheck();
       resolve();
     };
     
     ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
       reject(new Error('Failed to connect to local client'));
     };
     
     ws.onclose = () => {
+      console.log('WebSocket disconnected from local client');
       ws = null;
+      clearConnectionCheckInterval();
+      
       if (isStreaming) {
-        stopCapture();
+        console.log('Connection lost during streaming, stopping capture');
+        stopCapture().then(() => {
+          notifyConnectionLost();
+        });
+      }
+    };
+    
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'pong') {
+          // Response to our ping - connection is alive
+        } else if (data.type === 'waitingModeStop') {
+          // Stop streaming due to waiting mode (someone joined voice channel)
+          console.log('Received waiting mode stop signal - stopping streaming and pausing YouTube Music');
+          stopCapture().then(() => {
+            notifyWaitingModeStop();
+          });
+        }
+      } catch (e) {
+        // Ignore parsing errors
       }
     };
   });
@@ -287,6 +319,69 @@ chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
 chrome.runtime.onInstalled.addListener(() => {
   // Extension installed
 });
+
+// Connection monitoring functions
+function startConnectionCheck() {
+  clearConnectionCheckInterval();
+  
+  connectionCheckInterval = setInterval(() => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'ping' }));
+    } else if (isStreaming) {
+      // Connection lost but still marked as streaming
+      console.log('Connection check failed, stopping capture');
+      stopCapture();
+    }
+  }, 5000); // Check every 5 seconds
+}
+
+function clearConnectionCheckInterval() {
+  if (connectionCheckInterval) {
+    clearInterval(connectionCheckInterval);
+    connectionCheckInterval = null;
+  }
+}
+
+function clearReconnectInterval() {
+  if (reconnectInterval) {
+    clearInterval(reconnectInterval);
+    reconnectInterval = null;
+  }
+}
+
+// Notify tabs about connection loss
+async function notifyConnectionLost() {
+  try {
+    const tabs = await chrome.tabs.query({ url: "https://music.youtube.com/*" });
+    for (const tab of tabs) {
+      chrome.tabs.sendMessage(tab.id, {
+        action: 'connectionLost',
+        isStreaming: false
+      }).catch(() => {
+        // Tab might not be ready, ignore
+      });
+    }
+  } catch (error) {
+    console.error('Error notifying tabs about connection loss:', error);
+  }
+}
+
+// Notify tabs about waiting mode stop
+async function notifyWaitingModeStop() {
+  try {
+    const tabs = await chrome.tabs.query({ url: "https://music.youtube.com/*" });
+    for (const tab of tabs) {
+      chrome.tabs.sendMessage(tab.id, {
+        action: 'waitingModeStop',
+        isStreaming: false
+      }).catch(() => {
+        // Tab might not be ready, ignore
+      });
+    }
+  } catch (error) {
+    console.error('Error notifying tabs about waiting mode stop:', error);
+  }
+}
 
 // Export for testing
 if (typeof module !== 'undefined' && module.exports) {

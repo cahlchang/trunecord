@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "build:lambda": "npm install --production"
+    "build:lambda": "npm install --production",
+    "test": "jest",
+    "test:watch": "jest --watch"
   },
   "dependencies": {
     "axios": "^1.6.0",
@@ -18,5 +20,9 @@
   },
   "engines": {
     "node": ">=16.11.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3"
   }
 }

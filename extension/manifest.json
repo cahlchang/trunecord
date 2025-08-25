@@ -1,13 +1,15 @@
 {
   "manifest_version": 3,
-  "name": "Trunecord",
+  "name": "__MSG_extensionName__",
   "version": "1.0.0",
-  "description": "Stream YouTube Music audio to Discord voice channels",
+  "description": "__MSG_extensionDescription__",
+  "default_locale": "en",
   "permissions": [
     "activeTab",
     "tabs",
     "tabCapture",
-    "offscreen"
+    "offscreen",
+    "storage"
   ],
   "host_permissions": [
     "https://music.youtube.com/*"

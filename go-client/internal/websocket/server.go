@@ -19,6 +19,7 @@ type Server struct {
 	lastAudioTime    time.Time
 	timeoutTimer     *time.Timer
 	timeoutTimerLock sync.Mutex
+	clientMutex      sync.RWMutex
 }
 
 type Message struct {
@@ -38,8 +39,10 @@ func NewServer() *Server {
 			CheckOrigin: func(r *http.Request) bool {
 				return true // Allow all origins for Chrome extension
 			},
+			ReadBufferSize:  1024,
+			WriteBufferSize: 1024,
 		},
-		audioBuffer: make(chan []byte, 1000),
+		audioBuffer: make(chan []byte, 100), // Reduce buffer size for lower latency
 		clients:     make(map[*websocket.Conn]bool),
 	}
 }
@@ -52,13 +55,19 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
+	// Add client
+	s.clientMutex.Lock()
 	s.clients[conn] = true
+	s.clientMutex.Unlock()
+	
 	defer func() {
+		s.clientMutex.Lock()
 		delete(s.clients, conn)
 		// If no clients are connected, stop streaming
 		if len(s.clients) == 0 {
 			s.setStreaming(false)
 		}
+		s.clientMutex.Unlock()
 	}()
 
 	for {
@@ -89,8 +98,14 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 				case s.audioBuffer <- audioData:
 					// Audio queued successfully
 				default:
-					// Buffer full, skip this chunk
-					log.Printf("Audio buffer full, dropping chunk")
+					// Buffer full, drop oldest chunk to prevent latency
+					select {
+					case <-s.audioBuffer:
+						// Dropped oldest chunk
+						s.audioBuffer <- audioData
+					default:
+						// Still can't add, skip
+					}
 				}
 			}
 

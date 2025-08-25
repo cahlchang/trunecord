@@ -1,0 +1,107 @@
+{
+  "extensionName": {
+    "message": "Trunecord - Stream to Discord"
+  },
+  "extensionDescription": {
+    "message": "Stream YouTube Music audio to Discord"
+  },
+  "clickExtensionIcon": {
+    "message": "Click the extension icon in the toolbar to start streaming"
+  },
+  "startStreaming": {
+    "message": "Start Streaming"
+  },
+  "stopStreaming": {
+    "message": "Stop Streaming"
+  },
+  "streaming": {
+    "message": "Streaming"
+  },
+  "stop": {
+    "message": "Stop"
+  },
+  "failedToCommunicate": {
+    "message": "Failed to communicate with extension"
+  },
+  "failedToStartStreaming": {
+    "message": "Failed to start streaming"
+  },
+  "failedToConnect": {
+    "message": "Failed to connect. Make sure the local client is running."
+  },
+  "connectionLost": {
+    "message": "Connection to local client lost. Streaming stopped."
+  },
+  "waitingModeStop": {
+    "message": "Someone joined the voice channel - streaming stopped (waiting mode)"
+  },
+  "normalPlayback": {
+    "message": "Normal"
+  },
+  "audioSendingEnabled": {
+    "message": "Audio will be sent to Discord"
+  },
+  "audioSendingDisabled": {
+    "message": "Audio will play normally"
+  },
+  "popupTitle": {
+    "message": "Music to Discord"
+  },
+  "checkingConnection": {
+    "message": "Checking connection..."
+  },
+  "localClientConnected": {
+    "message": "Local client connected"
+  },
+  "localClientNotRunning": {
+    "message": "Local client not running"
+  },
+  "toStartStreaming": {
+    "message": "To start streaming:"
+  },
+  "openLocalClientApp": {
+    "message": "Open the local client app"
+  },
+  "goToYouTubeMusic": {
+    "message": "Go to YouTube Music"
+  },
+  "clickDiscordButton": {
+    "message": "Click the Discord button in the player"
+  },
+  "launchClientManually": {
+    "message": "Please launch the Music to Discord client application manually."
+  },
+  "startStreamingButton": {
+    "message": "Start Streaming"
+  },
+  "stopStreamingButton": {
+    "message": "Stop Streaming"
+  },
+  "starting": {
+    "message": "Starting..."
+  },
+  "streamingStarted": {
+    "message": "Streaming started!"
+  },
+  "streamingStopped": {
+    "message": "Streaming stopped"
+  },
+  "failed": {
+    "message": "Failed"
+  },
+  "error": {
+    "message": "Error"
+  },
+  "streamAlreadyActive": {
+    "message": "Stream already active. Please try again."
+  },
+  "unknownError": {
+    "message": "Unknown error"
+  },
+  "controlYouTubeMusicStreaming": {
+    "message": "Control YouTube Music streaming to Discord"
+  },
+  "pause": {
+    "message": "Pause"
+  }
+}
