@@ -16,34 +16,51 @@ const mimeTypes = {
 };
 
 const server = http.createServer((req, res) => {
+    // CORS headers
+    const corsHeaders = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+    };
+    
+    // Handle OPTIONS preflight request
+    if (req.method === 'OPTIONS') {
+        res.writeHead(204, corsHeaders);
+        res.end();
+        return;
+    }
+    
+    // Only allow GET and HEAD methods
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+        res.writeHead(405, { 'Content-Type': 'text/plain', ...corsHeaders });
+        res.end('405 Method Not Allowed');
+        return;
+    }
+    
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
     
-    // Parse URL and decode to prevent encoded traversal attacks
-    let urlPath = req.url.split('?')[0]; // Remove query string
-    urlPath = urlPath.split('#')[0]; // Remove hash
-    
-    // Decode URL to catch encoded traversal attempts like %2e%2e
+    // Parse URL properly using URL constructor
+    let pathname;
     try {
-        urlPath = decodeURIComponent(urlPath);
+        const parsed = new URL(req.url, `http://localhost:${PORT}`);
+        pathname = decodeURIComponent(parsed.pathname);
     } catch (e) {
-        // Invalid URL encoding
-        res.writeHead(400, { 'Content-Type': 'text/plain' });
+        // Invalid URL or encoding
+        res.writeHead(400, { 'Content-Type': 'text/plain', ...corsHeaders });
         res.end('400 Bad Request');
         return;
     }
     
     // Default to index.html for root
-    if (urlPath === '/') {
-        urlPath = '/index.html';
-    }
+    const safeRel = pathname === '/' ? '/index.html' : pathname;
     
-    // Remove leading slash and resolve path
-    const requestedPath = urlPath.slice(1); // Remove leading /
-    const fullPath = path.resolve(__dirname, requestedPath);
+    // Resolve path securely
+    const baseDir = path.resolve(__dirname);
+    const fullPath = path.resolve(baseDir, '.' + safeRel);
     
-    // Security: ensure resolved path is within __dirname
-    if (!fullPath.startsWith(__dirname)) {
-        res.writeHead(403, { 'Content-Type': 'text/plain' });
+    // Security: ensure resolved path is within baseDir
+    if (!fullPath.startsWith(baseDir + path.sep) && fullPath !== baseDir + path.sep + 'index.html') {
+        res.writeHead(403, { 'Content-Type': 'text/plain', ...corsHeaders });
         res.end('403 Forbidden');
         return;
     }
@@ -51,7 +68,7 @@ const server = http.createServer((req, res) => {
     // Check if file exists
     fs.access(fullPath, fs.constants.F_OK, (err) => {
         if (err) {
-            res.writeHead(404, { 'Content-Type': 'text/plain' });
+            res.writeHead(404, { 'Content-Type': 'text/plain', ...corsHeaders });
             res.end('404 Not Found');
             return;
         }
@@ -63,7 +80,7 @@ const server = http.createServer((req, res) => {
         // Read and serve file
         fs.readFile(fullPath, (error, content) => {
             if (error) {
-                res.writeHead(500, { 'Content-Type': 'text/plain' });
+                res.writeHead(500, { 'Content-Type': 'text/plain', ...corsHeaders });
                 res.end('500 Internal Server Error');
                 return;
             }
@@ -71,11 +88,15 @@ const server = http.createServer((req, res) => {
             // Add CORS headers for local development
             res.writeHead(200, {
                 'Content-Type': contentType,
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type'
+                ...corsHeaders
             });
-            res.end(content);
+            
+            // For HEAD requests, don't send the body
+            if (req.method === 'HEAD') {
+                res.end();
+            } else {
+                res.end(content);
+            }
         });
     });
 });
