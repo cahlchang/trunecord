@@ -30,6 +30,64 @@ type App struct {
 	userToken  string
 }
 
+func (a *App) run() {
+	// Start WebSocket server for Chrome extension
+	go func() {
+		log.Printf("📡 Starting WebSocket server on port %s", a.config.WebSocketPort)
+		if err := a.wsServer.Start(a.config.WebSocketPort); err != nil {
+			log.Printf("WebSocket server error: %v", err)
+		}
+	}()
+	
+	// Connect WebSocket audio buffer to Discord streamer
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+		
+		for range ticker.C {
+			if a.streamer.IsConnected() && !a.streamer.IsStreaming() {
+				// Start streaming with WebSocket audio buffer
+				err := a.streamer.StartStreaming(a.wsServer.GetAudioChannel())
+				if err != nil {
+					log.Printf("Failed to start streaming: %v", err)
+					continue
+				}
+				log.Printf("🎤 Started streaming audio to Discord")
+			}
+		}
+	}()
+
+	// Start HTTP server for OAuth callback and web UI
+	go a.startHTTPServer()
+
+	// Open browser after a short delay to ensure server is ready
+	go func() {
+		time.Sleep(1 * time.Second) // Reduce delay for faster startup
+		a.openBrowser()
+	}()
+
+	// Print status
+	fmt.Println("")
+	fmt.Println("✅ App is running!")
+	fmt.Println("")
+	fmt.Printf("🌐 Web Interface: http://localhost:%s\n", a.config.WebPort)
+	fmt.Printf("📡 WebSocket Port: %s (for Chrome Extension)\n", a.config.WebSocketPort)
+	fmt.Println("")
+	fmt.Println("Press Ctrl+C to stop")
+	fmt.Println("")
+
+	// Handle graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	<-sigChan
+
+	fmt.Println("")
+	log.Println("👋 Shutting down...")
+	if a.streamer.IsConnected() {
+		a.streamer.Disconnect()
+	}
+}
+
 func main() {
 	// Set up logging to file when running as .app bundle
 	homeDir, _ := os.UserHomeDir()
@@ -47,12 +105,21 @@ func main() {
 		defer logFile.Close()
 	}
 	
+	// Load configuration first
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+	}
+
+	// Initialize app temporarily for checkExistingInstance
+	tempApp := &App{config: cfg}
+	
 	// Check for existing instance
-	if checkExistingInstance() {
+	if tempApp.checkExistingInstance() {
 		log.Println("⚠️ trunecord is already running")
 		showNotification("trunecord", "アプリケーションは既に起動しています")
 		// Bring existing browser window to front
-		bringBrowserToFront()
+		bringBrowserToFront(cfg.WebPort)
 		os.Exit(0)
 	}
 	
@@ -63,13 +130,7 @@ func main() {
 	fmt.Println("")
 	log.Println("🚀 Starting trunecord...")
 
-	// Load configuration
-	cfg, err := config.Load()
-	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
-	}
-
-	// Initialize app
+	// Initialize app (config already loaded)
 	app := &App{
 		config:     cfg,
 		authClient: auth.NewClient(cfg.AuthAPIURL),
@@ -77,61 +138,8 @@ func main() {
 		wsServer:   websocket.NewServer(),
 	}
 
-	// Start WebSocket server for Chrome extension
-	go func() {
-		log.Printf("📡 Starting WebSocket server on port %s", cfg.WebSocketPort)
-		if err := app.wsServer.Start(cfg.WebSocketPort); err != nil {
-			log.Printf("WebSocket server error: %v", err)
-		}
-	}()
-	
-	// Connect WebSocket audio buffer to Discord streamer
-	go func() {
-		ticker := time.NewTicker(1 * time.Second)
-		defer ticker.Stop()
-		
-		for range ticker.C {
-			if app.streamer.IsConnected() && !app.streamer.IsStreaming() {
-				// Start streaming with WebSocket audio buffer
-				err := app.streamer.StartStreaming(app.wsServer.GetAudioChannel())
-				if err != nil {
-					log.Printf("Failed to start streaming: %v", err)
-					continue
-				}
-				log.Printf("🎤 Started streaming audio to Discord")
-			}
-		}
-	}()
-
-	// Start HTTP server for OAuth callback and web UI
-	go app.startHTTPServer()
-
-	// Open browser after a short delay to ensure server is ready
-	go func() {
-		time.Sleep(1 * time.Second) // Reduce delay for faster startup
-		app.openBrowser()
-	}()
-
-	// Print status
-	fmt.Println("")
-	fmt.Println("✅ App is running!")
-	fmt.Println("")
-	fmt.Printf("🌐 Web Interface: http://localhost:%s\n", cfg.WebPort)
-	fmt.Printf("📡 WebSocket Port: %s (for Chrome Extension)\n", cfg.WebSocketPort)
-	fmt.Println("")
-	fmt.Println("Press Ctrl+C to stop")
-	fmt.Println("")
-
-	// Handle graceful shutdown
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	<-sigChan
-
-	fmt.Println("")
-	log.Println("👋 Shutting down...")
-	if app.streamer.IsConnected() {
-		app.streamer.Disconnect()
-	}
+	// Run the application
+	app.run()
 }
 
 func (a *App) startHTTPServer() {
@@ -577,15 +585,32 @@ func (a *App) serveHomePage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleAuthCallback(w http.ResponseWriter, r *http.Request) {
+	if a.authClient == nil {
+		http.Error(w, "Authentication client not initialized", http.StatusInternalServerError)
+		return
+	}
+	
 	token := r.URL.Query().Get("token")
 
 	if token != "" {
 		a.userToken = token
 		log.Printf("Authentication successful")
+		
+		// Set HttpOnly cookie for security
+		cookie := &http.Cookie{
+			Name:     "auth_token",
+			Value:    token,
+			Path:     "/",
+			HttpOnly: true,
+			Secure:   false, // Set to true in production with HTTPS
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   86400, // 24 hours
+		}
+		http.SetCookie(w, cookie)
 	}
 
-	// Redirect to home with token
-	http.Redirect(w, r, "/?token="+token, http.StatusFound)
+	// Redirect to home without token in URL
+	http.Redirect(w, r, "/", http.StatusFound)
 }
 
 func (a *App) handleGetAuthURL(w http.ResponseWriter, r *http.Request) {
@@ -595,11 +620,13 @@ func (a *App) handleGetAuthURL(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleGetGuilds(w http.ResponseWriter, r *http.Request) {
-	// Get token from Authorization header or use stored token
+	// Get token from Authorization header, cookie, or use stored token
 	token := a.userToken
 	authHeader := r.Header.Get("Authorization")
 	if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
 		token = strings.TrimPrefix(authHeader, "Bearer ")
+	} else if cookie, err := r.Cookie("auth_token"); err == nil {
+		token = cookie.Value
 	}
 	
 	if token == "" {
@@ -619,11 +646,13 @@ func (a *App) handleGetGuilds(w http.ResponseWriter, r *http.Request) {
 func (a *App) handleGetChannels(w http.ResponseWriter, r *http.Request) {
 	guildID := r.URL.Query().Get("guildId")
 	
-	// Get token from Authorization header or use stored token
+	// Get token from Authorization header, cookie, or use stored token
 	token := a.userToken
 	authHeader := r.Header.Get("Authorization")
 	if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
 		token = strings.TrimPrefix(authHeader, "Bearer ")
+	} else if cookie, err := r.Cookie("auth_token"); err == nil {
+		token = cookie.Value
 	}
 	
 	if token == "" {
@@ -641,6 +670,11 @@ func (a *App) handleGetChannels(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleConnect(w http.ResponseWriter, r *http.Request) {
+	if a.authClient == nil {
+		http.Error(w, "Authentication client not initialized", http.StatusInternalServerError)
+		return
+	}
+	
 	var req struct {
 		GuildID   string `json:"guildId"`
 		ChannelID string `json:"channelId"`
@@ -650,11 +684,13 @@ func (a *App) handleConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get token from Authorization header or use stored token
+	// Get token from Authorization header, cookie, or use stored token
 	token := a.userToken
 	authHeader := r.Header.Get("Authorization")
 	if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
 		token = strings.TrimPrefix(authHeader, "Bearer ")
+	} else if cookie, err := r.Cookie("auth_token"); err == nil {
+		token = cookie.Value
 	}
 	
 	if token == "" {
@@ -712,9 +748,9 @@ func (a *App) handleStatus(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(status)
 }
 
-func checkExistingInstance() bool {
-	// Check if port 48766 is already in use
-	conn, err := net.Dial("tcp", "localhost:48766")
+func (a *App) checkExistingInstance() bool {
+	// Check if configured web port is already in use
+	conn, err := net.Dial("tcp", "localhost:"+a.config.WebPort)
 	if err != nil {
 		// Port is not in use, no existing instance
 		return false
@@ -756,8 +792,8 @@ func showNotification(title, message string) {
 	}
 }
 
-func bringBrowserToFront() {
-	url := "http://localhost:48766"
+func bringBrowserToFront(port string) {
+	url := "http://localhost:" + port
 	
 	switch runtime.GOOS {
 	case "darwin":

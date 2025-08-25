@@ -15,7 +15,7 @@ import (
 	"trunecord/internal/icon"
 )
 
-func setupMenuBarSystray(app *Application) {
+func setupMenuBarSystray(app *App) {
 	// systray.Run is blocking, so we need to run it in the main thread
 	// and run the app logic in a goroutine
 	systray.Run(func() {
@@ -23,7 +23,7 @@ func setupMenuBarSystray(app *Application) {
 	}, onExit)
 }
 
-func onReady(app *Application) {
+func onReady(app *App) {
 	// Set icon - use ICO format for Windows
 	systray.SetIcon(icon.DataICO)
 	systray.SetTooltip("trunecord - Music to Discord")
@@ -106,7 +106,7 @@ func openBrowser(url string) {
 	}
 }
 
-func runApp(app *Application) {
+func runApp(app *App) {
 	// Run the main application logic in a goroutine
 	go app.run()
 	
@@ -114,7 +114,7 @@ func runApp(app *Application) {
 	setupMenuBarSystray(app)
 }
 
-func setupMenuBar(app *Application) {
+func setupMenuBar(app *App) {
 	// Deprecated: Using setupMenuBarSystray instead
 	setupMenuBarSystray(app)
 }

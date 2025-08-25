@@ -45,7 +45,19 @@ func NewClient(baseURL string) *Client {
 }
 
 func (c *Client) GetAuthURL() string {
-	return fmt.Sprintf("%s/api/auth?redirect_protocol=http", c.BaseURL)
+	baseURL, err := url.Parse(c.BaseURL)
+	if err != nil {
+		// Fallback to string concatenation if URL parsing fails
+		return fmt.Sprintf("%s/api/auth?redirect_protocol=http", c.BaseURL)
+	}
+	
+	baseURL.Path = "/api/auth"
+	
+	query := baseURL.Query()
+	query.Set("redirect_protocol", "http")
+	baseURL.RawQuery = query.Encode()
+	
+	return baseURL.String()
 }
 
 func (c *Client) ParseAuthCallback(callbackURL string) (*TokenData, error) {

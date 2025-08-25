@@ -3,11 +3,11 @@
 
 package main
 
-func setupMenuBar(app *Application) {
+func setupMenuBar(app *App) {
 	// Menu bar/system tray is only supported on macOS and Windows
 }
 
-func runApp(app *Application) {
+func runApp(app *App) {
 	// Run the main application logic
 	app.run()
 }

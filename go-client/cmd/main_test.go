@@ -19,17 +19,17 @@ func TestCheckAudioSupport(t *testing.T) {
 	// and can be called without panic
 }
 
-func TestApplicationStruct(t *testing.T) {
-	// Test that the Application struct is properly defined
-	app := Application{}
+func TestAppStruct(t *testing.T) {
+	// Test that the App struct is properly defined
+	app := App{}
 
 	// Basic field existence check
 	_ = app.config
 	_ = app.streamer
 	_ = app.wsServer
-	_ = app.webServer
 	_ = app.authClient
+	_ = app.userToken
 
 	// If we get here without compilation errors, the struct is properly defined
-	t.Log("Application struct is properly defined")
+	t.Log("App struct is properly defined")
 }
