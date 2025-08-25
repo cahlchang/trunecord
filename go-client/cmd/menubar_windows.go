@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"time"
 
@@ -56,14 +57,19 @@ func onReady(app *App) {
 				openBrowser(fmt.Sprintf("http://localhost:%s", app.config.WebPort))
 			case <-mViewLogs.ClickedCh:
 				// On Windows, open log directory in Explorer
-				logDir := fmt.Sprintf("%s\\AppData\\Local\\trunecord\\logs", os.Getenv("USERPROFILE"))
+				localAppData := os.Getenv("LOCALAPPDATA")
+				if localAppData == "" {
+					localAppData = filepath.Join(os.Getenv("USERPROFILE"), "AppData", "Local")
+				}
+				logDir := filepath.Join(localAppData, "trunecord", "logs")
 				exec.Command("explorer", logDir).Start()
 			case <-mQuit.ClickedCh:
 				log.Println("Quitting trunecord from system tray")
 				if app.streamer.IsConnected() {
 					app.streamer.Disconnect()
 				}
-				os.Exit(0)
+				systray.Quit()
+				return
 			}
 		}
 	}()

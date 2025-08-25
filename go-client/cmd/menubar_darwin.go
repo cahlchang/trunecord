@@ -61,28 +61,33 @@ func onReady(app *App) {
 				if app.streamer.IsConnected() {
 					app.streamer.Disconnect()
 				}
-				os.Exit(0)
+				systray.Quit()
+				return
 			}
 		}
 	}()
 	
 	// Update status periodically
 	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+		
 		for {
-			if app.streamer.IsConnected() {
-				mStatus.SetTitle("✓ Connected to Discord")
-				mStreamStatus.Show()
-				if app.wsServer.IsStreaming() {
-					mStreamStatus.SetTitle("♫ Streaming")
+			select {
+			case <-ticker.C:
+				if app.streamer.IsConnected() {
+					mStatus.SetTitle("✓ Connected to Discord")
+					mStreamStatus.Show()
+					if app.wsServer.IsStreaming() {
+						mStreamStatus.SetTitle("♫ Streaming")
+					} else {
+						mStreamStatus.SetTitle("⏸ Not Streaming")
+					}
 				} else {
-					mStreamStatus.SetTitle("⏸ Not Streaming")
+					mStatus.SetTitle("○ Not Connected")
+					mStreamStatus.Hide()
 				}
-			} else {
-				mStatus.SetTitle("○ Not Connected")
-				mStreamStatus.Hide()
 			}
-			// Update every 1 second
-			time.Sleep(1 * time.Second)
 		}
 	}()
 }

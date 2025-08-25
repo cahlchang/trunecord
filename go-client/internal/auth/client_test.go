@@ -75,8 +75,8 @@ func TestGetChannels(t *testing.T) {
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Check path
-		if r.URL.Path != "/api/guilds/guild123/channels" {
-			t.Errorf("Expected path /api/guilds/guild123/channels, got %s", r.URL.Path)
+		if r.URL.Path != "/api/guilds/123456789012345678/channels" {
+			t.Errorf("Expected path /api/guilds/123456789012345678/channels, got %s", r.URL.Path)
 		}
 
 		// Check Authorization header
@@ -99,7 +99,7 @@ func TestGetChannels(t *testing.T) {
 
 	client := NewClient(server.URL)
 
-	channels, err := client.GetChannels("guild123", "test-token")
+	channels, err := client.GetChannels("123456789012345678", "test-token")
 	if err != nil {
 		t.Errorf("GetChannels() error = %v", err)
 		return

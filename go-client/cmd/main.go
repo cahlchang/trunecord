@@ -165,8 +165,16 @@ func (a *App) startHTTPServer() {
 	mux.HandleFunc("/api/disconnect", a.handleDisconnect)
 	mux.HandleFunc("/api/status", a.handleStatus)
 
+	server := &http.Server{
+		Addr:         ":" + a.config.WebPort,
+		Handler:      mux,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+	
 	log.Printf("Starting HTTP server on http://localhost:%s", a.config.WebPort)
-	if err := http.ListenAndServe(":"+a.config.WebPort, mux); err != nil {
+	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("HTTP server error: %v", err)
 	}
 }
@@ -485,7 +493,8 @@ func (a *App) serveHomePage(w http.ResponseWriter, r *http.Request) {
             
             const token = localStorage.getItem('token');
             const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
-            const response = await fetch('/api/channels?guildId=' + guildId, { headers });
+            const params = new URLSearchParams({ guildId });
+            const response = await fetch('/api/channels?' + params.toString(), { headers });
             const channels = await response.json();
             const select = document.getElementById('channel-select');
             select.innerHTML = '<option value="">Choose a voice channel...</option>';
@@ -590,24 +599,65 @@ func (a *App) handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	token := r.URL.Query().Get("token")
-
-	if token != "" {
-		a.userToken = token
-		log.Printf("Authentication successful")
-		
-		// Set HttpOnly cookie for security
-		cookie := &http.Cookie{
-			Name:     "auth_token",
-			Value:    token,
-			Path:     "/",
-			HttpOnly: true,
-			Secure:   false, // Set to true in production with HTTPS
-			SameSite: http.SameSiteLaxMode,
-			MaxAge:   86400, // 24 hours
-		}
-		http.SetCookie(w, cookie)
+	// Only allow GET requests for callbacks
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
+	
+	token := r.URL.Query().Get("token")
+	errorParam := r.URL.Query().Get("error")
+	
+	// Handle OAuth errors
+	if errorParam != "" {
+		log.Printf("OAuth error received: %s", errorParam)
+		http.Error(w, "Authentication failed", http.StatusUnauthorized)
+		return
+	}
+	
+	// Validate token presence and format
+	if token == "" {
+		log.Printf("No token received in callback")
+		http.Error(w, "Invalid callback - no token", http.StatusBadRequest)
+		return
+	}
+	
+	// Basic token format validation (JWT should have 3 parts separated by dots)
+	tokenParts := strings.Split(token, ".")
+	if len(tokenParts) != 3 {
+		log.Printf("Invalid token format received")
+		http.Error(w, "Invalid token format", http.StatusBadRequest)
+		return
+	}
+
+	// Verify token is actually valid by testing it with the auth server
+	valid, err := a.authClient.VerifyToken(token)
+	if err != nil {
+		log.Printf("Token verification failed: %v", err)
+		http.Error(w, "Token verification failed", http.StatusUnauthorized)
+		return
+	}
+	if !valid {
+		log.Printf("Token verification returned invalid")
+		http.Error(w, "Invalid token", http.StatusUnauthorized)
+		return
+	}
+
+	// Store token and set secure cookie
+	a.userToken = token
+	log.Printf("Authentication successful and token verified")
+	
+	// Set HttpOnly cookie for security
+	cookie := &http.Cookie{
+		Name:     "auth_token",
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false, // Set to true in production with HTTPS
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   86400, // 24 hours
+	}
+	http.SetCookie(w, cookie)
 
 	// Redirect to home without token in URL
 	http.Redirect(w, r, "/", http.StatusFound)
@@ -644,7 +694,13 @@ func (a *App) handleGetGuilds(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleGetChannels(w http.ResponseWriter, r *http.Request) {
-	guildID := r.URL.Query().Get("guildId")
+	guildID := strings.TrimSpace(r.URL.Query().Get("guildId"))
+	
+	// Validate guildID parameter
+	if guildID == "" {
+		http.Error(w, "Missing guildId parameter", http.StatusBadRequest)
+		return
+	}
 	
 	// Get token from Authorization header, cookie, or use stored token
 	token := a.userToken
@@ -662,7 +718,12 @@ func (a *App) handleGetChannels(w http.ResponseWriter, r *http.Request) {
 	
 	channels, err := a.authClient.GetChannels(guildID, token)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("Failed to get channels for guild %s: %v", guildID, err)
+		if strings.Contains(err.Error(), "invalid guildID format") {
+			http.Error(w, "Invalid guild ID format", http.StatusBadRequest)
+		} else {
+			http.Error(w, "Failed to get channels", http.StatusInternalServerError)
+		}
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -675,12 +736,34 @@ func (a *App) handleConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
+	// Only allow POST requests
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	
 	var req struct {
 		GuildID   string `json:"guildId"`
 		ChannelID string `json:"channelId"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		log.Printf("Failed to decode connect request: %v", err)
+		http.Error(w, "Invalid request format", http.StatusBadRequest)
+		return
+	}
+	
+	// Validate input parameters
+	req.GuildID = strings.TrimSpace(req.GuildID)
+	req.ChannelID = strings.TrimSpace(req.ChannelID)
+	
+	if req.GuildID == "" || req.ChannelID == "" {
+		http.Error(w, "Missing guildId or channelId", http.StatusBadRequest)
+		return
+	}
+	
+	// Basic Discord ID format validation
+	if !isValidDiscordID(req.GuildID) || !isValidDiscordID(req.ChannelID) {
+		http.Error(w, "Invalid guild or channel ID format", http.StatusBadRequest)
 		return
 	}
 
@@ -701,13 +784,15 @@ func (a *App) handleConnect(w http.ResponseWriter, r *http.Request) {
 	// Get bot token
 	botToken, err := a.authClient.GetBotToken(token)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("Failed to get bot token: %v", err)
+		http.Error(w, "Failed to get bot token", http.StatusInternalServerError)
 		return
 	}
 
 	// Connect to Discord
 	if err := a.streamer.Connect(botToken, req.GuildID, req.ChannelID); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("Failed to connect to Discord: %v", err)
+		http.Error(w, "Failed to connect to Discord voice channel", http.StatusInternalServerError)
 		return
 	}
 	
@@ -725,10 +810,36 @@ func (a *App) handleConnect(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
-func (a *App) handleDisconnect(w http.ResponseWriter, r *http.Request) {
-	if a.streamer.IsConnected() {
-		a.streamer.Disconnect()
+// Helper function to validate Discord ID format (duplicate from auth package for main package)
+func isValidDiscordID(id string) bool {
+	// Discord IDs are 64-bit unsigned integers (up to 19 digits)
+	if len(id) < 1 || len(id) > 19 {
+		return false
 	}
+	for _, char := range id {
+		if char < '0' || char > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func (a *App) handleDisconnect(w http.ResponseWriter, r *http.Request) {
+	// Only allow POST requests for disconnect
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	
+	if a.streamer != nil && a.streamer.IsConnected() {
+		err := a.streamer.Disconnect()
+		if err != nil {
+			log.Printf("Error during disconnect: %v", err)
+		} else {
+			log.Printf("Successfully disconnected from Discord")
+		}
+	}
+	
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
