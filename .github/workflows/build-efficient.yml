@@ -45,7 +45,7 @@ jobs:
           mkdir -p build/bin
           CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o build/bin/trunecord-linux-amd64 cmd/main.go
       
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: trunecord-linux
           path: go-client/build/bin/*
@@ -98,7 +98,7 @@ jobs:
             CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -o build/bin/trunecord-darwin-amd64 cmd/main.go
           fi
       
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: trunecord-${{ matrix.name }}
           path: |
