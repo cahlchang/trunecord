@@ -8,9 +8,7 @@
     "activeTab",
     "tabs",
     "tabCapture",
-    "offscreen",
-    "storage",
-    "notifications"
+    "offscreen"
   ],
   "host_permissions": [
     "https://music.youtube.com/*"
