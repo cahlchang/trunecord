@@ -1,4 +1,4 @@
-name: Build Standalone Apps
+name: Build Browser Apps
 
 on:
   push:

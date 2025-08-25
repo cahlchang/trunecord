@@ -30,8 +30,8 @@ jobs:
           draft: false
           prerelease: false
 
-  build-gui:
-    name: Build GUI Applications with Wails
+  build-browser-app:
+    name: Build Browser Application
     needs: release
     runs-on: ${{ matrix.os }}
     strategy:
@@ -70,15 +70,13 @@ jobs:
         with:
           go-version: '1.22'
 
-      - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+      # Wails is no longer needed for browser app
 
       # Platform-specific dependencies
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
           sudo apt-get install -y libayatana-appindicator3-dev
           sudo apt-get install -y build-essential libopus-dev
 
@@ -98,13 +96,21 @@ jobs:
             mingw-w64-x86_64-pkg-config
             mingw-w64-x86_64-gcc
 
-      # Build the Wails application
-      - name: Build Wails App
+      # Build the browser application
+      - name: Build Browser App
+        shell: bash
         env:
           CGO_ENABLED: 1
+          GOOS: ${{ matrix.platform }}
+          GOARCH: ${{ matrix.arch }}
         run: |
           cd go-client
-          wails build -clean -platform ${{ matrix.platform }}/${{ matrix.arch }}
+          mkdir -p build/bin
+          if [ "${{ matrix.platform }}" = "windows" ]; then
+            go build -o build/bin/trunecord.exe cmd/main.go
+          else
+            go build -o build/bin/trunecord cmd/main.go
+          fi
 
       # Package for macOS (create DMG)
       - name: Create macOS DMG
@@ -118,8 +124,8 @@ jobs:
           rm -rf "$DMG_TEMP"
           mkdir -p "$DMG_TEMP"
           
-          # Copy app to temp directory
-          cp -r build/bin/trunecord.app "$DMG_TEMP/"
+          # Copy binary to temp directory
+          cp build/bin/trunecord "$DMG_TEMP/"
           
           # Create Applications symlink
           ln -s /Applications "$DMG_TEMP/Applications"
@@ -129,9 +135,9 @@ jobs:
           trunecord Installation
           ======================
           
-          1. Drag trunecord.app to the Applications folder
-          2. Launch trunecord from Applications or Launchpad
-          3. The app will appear as a standalone GUI application
+          1. Copy trunecord to the Applications folder
+          2. Launch trunecord from Terminal or double-click
+          3. The app will open in your browser
           
           Support: https://github.com/cahlchang/trunecord
           EOF
