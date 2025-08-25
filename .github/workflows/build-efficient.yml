@@ -36,13 +36,14 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
-          go install github.com/wailsapp/wails/v2/cmd/wails@latest
+          sudo apt-get install -y libayatana-appindicator3-dev
+          sudo apt-get install -y build-essential libopus-dev
       
       - name: Build
         run: |
           cd go-client
-          wails build -platform linux/amd64
+          mkdir -p build/bin
+          CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o build/bin/trunecord-linux-amd64 cmd/main.go
       
       - uses: actions/upload-artifact@v3
         with:
@@ -76,9 +77,6 @@ jobs:
           go-version: '1.21'
           cache: true
       
-      - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
-      
       # macOS依存関係
       - name: macOS dependencies
         if: runner.os == 'macOS'
@@ -90,9 +88,15 @@ jobs:
         run: choco install mingw
       
       - name: Build
+        shell: bash
         run: |
           cd go-client
-          wails build
+          mkdir -p build/bin
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -o build/bin/trunecord-windows-amd64.exe cmd/main.go
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -o build/bin/trunecord-darwin-amd64 cmd/main.go
+          fi
       
       - uses: actions/upload-artifact@v3
         with:
