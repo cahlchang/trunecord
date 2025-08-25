@@ -18,15 +18,35 @@ const mimeTypes = {
 const server = http.createServer((req, res) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
     
-    // Parse URL
-    let filePath = '.' + req.url;
-    if (filePath === './') {
-        filePath = './index.html';
+    // Parse URL and decode to prevent encoded traversal attacks
+    let urlPath = req.url.split('?')[0]; // Remove query string
+    urlPath = urlPath.split('#')[0]; // Remove hash
+    
+    // Decode URL to catch encoded traversal attempts like %2e%2e
+    try {
+        urlPath = decodeURIComponent(urlPath);
+    } catch (e) {
+        // Invalid URL encoding
+        res.writeHead(400, { 'Content-Type': 'text/plain' });
+        res.end('400 Bad Request');
+        return;
     }
     
-    // Security: prevent directory traversal
-    const safePath = path.normalize(filePath).replace(/^(\.\.[\/\\])+/, '');
-    const fullPath = path.join(__dirname, safePath);
+    // Default to index.html for root
+    if (urlPath === '/') {
+        urlPath = '/index.html';
+    }
+    
+    // Remove leading slash and resolve path
+    const requestedPath = urlPath.slice(1); // Remove leading /
+    const fullPath = path.resolve(__dirname, requestedPath);
+    
+    // Security: ensure resolved path is within __dirname
+    if (!fullPath.startsWith(__dirname)) {
+        res.writeHead(403, { 'Content-Type': 'text/plain' });
+        res.end('403 Forbidden');
+        return;
+    }
     
     // Check if file exists
     fs.access(fullPath, fs.constants.F_OK, (err) => {
