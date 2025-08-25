@@ -13,7 +13,7 @@ import (
 
 const (
 	// Expected extension version
-	ExpectedExtensionVersion = "1.1.0"
+	ExpectedExtensionVersion = "1.1.1"
 )
 
 type Server struct {
