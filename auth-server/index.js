@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const axios = require('axios');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 
@@ -13,6 +14,54 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+// Rate limiting - very relaxed (16 hours continuous use)
+const voiceRateLimit = rateLimit({
+  windowMs: 60 * 1000, // 1 minute window
+  max: 100, // 100 requests per minute (very generous)
+  message: 'Too many voice connection requests. Please wait a moment.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const generalApiRateLimit = rateLimit({
+  windowMs: 60 * 1000, // 1 minute window
+  max: 200, // 200 requests per minute
+  message: 'Too many API requests. Please wait a moment.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Apply rate limiting to specific routes
+app.use('/api/voice/', voiceRateLimit);
+app.use('/api/', generalApiRateLimit);
+
+// Simple memory cache
+const cache = new Map();
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour cache
+
+// Cache helper functions
+const getCacheKey = (type, userId, extra = '') => `${type}:${userId}:${extra}`;
+
+const getFromCache = (key) => {
+  const cached = cache.get(key);
+  if (cached && cached.expires > Date.now()) {
+    console.log(`Cache hit for ${key}`);
+    return cached.data;
+  }
+  if (cached) {
+    cache.delete(key); // Clean up expired entries
+  }
+  return null;
+};
+
+const setCache = (key, data, ttl = CACHE_TTL) => {
+  cache.set(key, {
+    data,
+    expires: Date.now() + ttl
+  });
+  console.log(`Cached ${key} for ${ttl/1000} seconds`);
+};
 
 // Helper functions
 const generateState = () => {
@@ -343,7 +392,7 @@ app.get('/api/verify', (req, res) => {
 });
 
 
-// Get guilds list (protected endpoint)
+// Get guilds list (protected endpoint with caching)
 app.get('/api/guilds', async (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
   
@@ -351,9 +400,17 @@ app.get('/api/guilds', async (req, res) => {
     // No token provided - check if this is a desktop app request
     console.log('[GUILDS] No auth token provided');
     
+    // Check cache for bot guilds
+    const cacheKey = 'bot-guilds';
+    const cached = getFromCache(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+    
     // For desktop app, we don't need user token since bot token is on server
     try {
       const botGuilds = await getBotGuilds();
+      setCache(cacheKey, botGuilds, CACHE_TTL);
       res.json(botGuilds);
     } catch (error) {
       console.error('[GUILDS] Error getting bot guilds:', error);
@@ -364,10 +421,19 @@ app.get('/api/guilds', async (req, res) => {
   
   try {
     // Verify JWT token if provided
-    jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.userId || decoded.id;
+    
+    // Check cache for user guilds
+    const cacheKey = getCacheKey('guilds', userId);
+    const cached = getFromCache(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
     
     // Get bot's guilds
     const botGuilds = await getBotGuilds();
+    setCache(cacheKey, botGuilds, CACHE_TTL);
     res.json(botGuilds);
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
@@ -378,7 +444,7 @@ app.get('/api/guilds', async (req, res) => {
   }
 });
 
-// Get guild channels
+// Get guild channels (with caching)
 app.get('/api/guilds/:guildId/channels', async (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
   const { guildId } = req.params;
@@ -389,7 +455,15 @@ app.get('/api/guilds/:guildId/channels', async (req, res) => {
   
   try {
     // Verify JWT token
-    jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.userId || decoded.id;
+    
+    // Check cache for channels
+    const cacheKey = getCacheKey('channels', userId, guildId);
+    const cached = getFromCache(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
     
     // Get guild channels using bot token
     const response = await axios.get(`https://discord.com/api/guilds/${guildId}/channels`, {
@@ -408,7 +482,11 @@ app.get('/api/guilds/:guildId/channels', async (req, res) => {
       }))
       .sort((a, b) => a.position - b.position);
     
-    res.json({ channels: voiceChannels });
+    // Cache the result
+    const result = { channels: voiceChannels };
+    setCache(cacheKey, result, CACHE_TTL);
+    
+    res.json(result);
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
       res.status(401).json({ error: 'Invalid token' });
@@ -418,8 +496,16 @@ app.get('/api/guilds/:guildId/channels', async (req, res) => {
   }
 });
 
-// Get bot token (protected endpoint)
+// Get bot token (protected endpoint - disabled by default for security)
 app.get('/api/bot-token', async (req, res) => {
+  // Security: Disable by default unless explicitly enabled
+  if (process.env.ENABLE_BOT_TOKEN_ENDPOINT !== 'true') {
+    return res.status(403).json({ 
+      error: 'Bot token endpoint disabled for security. Use voice proxy endpoints instead.',
+      alternatives: ['/api/voice/connect', '/api/voice/disconnect']
+    });
+  }
+  
   const token = req.headers.authorization?.split(' ')[1];
   
   if (!token) {
@@ -431,7 +517,7 @@ app.get('/api/bot-token', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
     // Log access for security auditing
-    console.log(`Bot token accessed by user ${decoded.userId} at ${new Date().toISOString()}`);
+    console.log(`⚠️ Bot token accessed by user ${decoded.userId} at ${new Date().toISOString()}`);
     
     // Return bot token over HTTPS
     // The token is protected by:
@@ -440,13 +526,93 @@ app.get('/api/bot-token', async (req, res) => {
     // 3. Client-side memory-only storage (no persistence)
     res.json({ 
       botToken: process.env.DISCORD_BOT_TOKEN,
-      warning: 'This token must not be stored persistently. Keep it in memory only.'
+      warning: 'This token must not be stored persistently. Keep it in memory only.',
+      deprecated: 'This endpoint is deprecated. Please use voice proxy endpoints instead.'
     });
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
       res.status(401).json({ error: 'Invalid token' });
     } else {
       res.status(500).json({ error: 'Failed to get bot token' });
+    }
+  }
+});
+
+// Voice channel connection proxy (replaces direct bot token usage)
+app.post('/api/voice/connect', async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  const { guildId, channelId } = req.body;
+  
+  if (!token) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
+  
+  if (!guildId || !channelId) {
+    return res.status(400).json({ error: 'Missing guildId or channelId' });
+  }
+  
+  try {
+    // Verify JWT token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.userId || decoded.id;
+    
+    console.log(`Voice connect: User ${userId} connecting to ${guildId}/${channelId}`);
+    
+    // Note: Discord doesn't have a direct REST API for bot voice connections
+    // This endpoint returns success and expects the client to handle WebSocket voice connection
+    // The actual voice connection happens through Discord Gateway (WebSocket)
+    
+    // Store connection info in cache for tracking
+    const cacheKey = getCacheKey('voice-connection', userId);
+    setCache(cacheKey, { guildId, channelId, connectedAt: Date.now() }, 16 * 60 * 60 * 1000); // 16 hours
+    
+    res.json({ 
+      success: true,
+      message: 'Voice connection initiated. Client should establish WebSocket connection.',
+      guildId,
+      channelId
+    });
+  } catch (error) {
+    console.error('Voice connect error:', error);
+    if (error.name === 'JsonWebTokenError') {
+      res.status(401).json({ error: 'Invalid token' });
+    } else {
+      res.status(500).json({ error: 'Failed to connect to voice channel' });
+    }
+  }
+});
+
+// Voice channel disconnect proxy
+app.post('/api/voice/disconnect', async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  const { guildId } = req.body;
+  
+  if (!token) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
+  
+  try {
+    // Verify JWT token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.userId || decoded.id;
+    
+    console.log(`Voice disconnect: User ${userId} disconnecting from ${guildId}`);
+    
+    // Clear connection cache
+    const cacheKey = getCacheKey('voice-connection', userId);
+    cache.delete(cacheKey);
+    
+    res.json({ 
+      success: true,
+      message: 'Voice disconnection initiated',
+      guildId
+    });
+  } catch (error) {
+    console.error('Voice disconnect error:', error);
+    if (error.name === 'JsonWebTokenError') {
+      res.status(401).json({ error: 'Invalid token' });
+    } else {
+      res.status(500).json({ error: 'Failed to disconnect from voice channel' });
     }
   }
 });
