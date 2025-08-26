@@ -36,33 +36,6 @@ const generalApiRateLimit = rateLimit({
 app.use('/api/voice/', voiceRateLimit);
 app.use('/api/', generalApiRateLimit);
 
-// Simple memory cache
-const cache = new Map();
-const CACHE_TTL = 60 * 60 * 1000; // 1 hour cache
-
-// Cache helper functions
-const getCacheKey = (type, userId, extra = '') => `${type}:${userId}:${extra}`;
-
-const getFromCache = (key) => {
-  const cached = cache.get(key);
-  if (cached && cached.expires > Date.now()) {
-    console.log(`Cache hit for ${key}`);
-    return cached.data;
-  }
-  if (cached) {
-    cache.delete(key); // Clean up expired entries
-  }
-  return null;
-};
-
-const setCache = (key, data, ttl = CACHE_TTL) => {
-  cache.set(key, {
-    data,
-    expires: Date.now() + ttl
-  });
-  console.log(`Cached ${key} for ${ttl/1000} seconds`);
-};
-
 // Helper functions
 const generateState = () => {
   return Math.random().toString(36).substring(2, 15) + 
@@ -392,7 +365,7 @@ app.get('/api/verify', (req, res) => {
 });
 
 
-// Get guilds list (protected endpoint with caching)
+// Get guilds list (protected endpoint)
 app.get('/api/guilds', async (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
   
@@ -400,17 +373,9 @@ app.get('/api/guilds', async (req, res) => {
     // No token provided - check if this is a desktop app request
     console.log('[GUILDS] No auth token provided');
     
-    // Check cache for bot guilds
-    const cacheKey = 'bot-guilds';
-    const cached = getFromCache(cacheKey);
-    if (cached) {
-      return res.json(cached);
-    }
-    
     // For desktop app, we don't need user token since bot token is on server
     try {
       const botGuilds = await getBotGuilds();
-      setCache(cacheKey, botGuilds, CACHE_TTL);
       res.json(botGuilds);
     } catch (error) {
       console.error('[GUILDS] Error getting bot guilds:', error);
@@ -421,19 +386,10 @@ app.get('/api/guilds', async (req, res) => {
   
   try {
     // Verify JWT token if provided
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const userId = decoded.userId || decoded.id;
-    
-    // Check cache for user guilds
-    const cacheKey = getCacheKey('guilds', userId);
-    const cached = getFromCache(cacheKey);
-    if (cached) {
-      return res.json(cached);
-    }
+    jwt.verify(token, process.env.JWT_SECRET);
     
     // Get bot's guilds
     const botGuilds = await getBotGuilds();
-    setCache(cacheKey, botGuilds, CACHE_TTL);
     res.json(botGuilds);
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
@@ -444,7 +400,7 @@ app.get('/api/guilds', async (req, res) => {
   }
 });
 
-// Get guild channels (with caching)
+// Get guild channels
 app.get('/api/guilds/:guildId/channels', async (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
   const { guildId } = req.params;
@@ -455,15 +411,7 @@ app.get('/api/guilds/:guildId/channels', async (req, res) => {
   
   try {
     // Verify JWT token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const userId = decoded.userId || decoded.id;
-    
-    // Check cache for channels
-    const cacheKey = getCacheKey('channels', userId, guildId);
-    const cached = getFromCache(cacheKey);
-    if (cached) {
-      return res.json(cached);
-    }
+    jwt.verify(token, process.env.JWT_SECRET);
     
     // Get guild channels using bot token
     const response = await axios.get(`https://discord.com/api/guilds/${guildId}/channels`, {
@@ -482,11 +430,7 @@ app.get('/api/guilds/:guildId/channels', async (req, res) => {
       }))
       .sort((a, b) => a.position - b.position);
     
-    // Cache the result
-    const result = { channels: voiceChannels };
-    setCache(cacheKey, result, CACHE_TTL);
-    
-    res.json(result);
+    res.json({ channels: voiceChannels });
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
       res.status(401).json({ error: 'Invalid token' });
@@ -562,10 +506,6 @@ app.post('/api/voice/connect', async (req, res) => {
     // This endpoint returns success and expects the client to handle WebSocket voice connection
     // The actual voice connection happens through Discord Gateway (WebSocket)
     
-    // Store connection info in cache for tracking
-    const cacheKey = getCacheKey('voice-connection', userId);
-    setCache(cacheKey, { guildId, channelId, connectedAt: Date.now() }, 16 * 60 * 60 * 1000); // 16 hours
-    
     res.json({ 
       success: true,
       message: 'Voice connection initiated. Client should establish WebSocket connection.',
@@ -597,10 +537,6 @@ app.post('/api/voice/disconnect', async (req, res) => {
     const userId = decoded.userId || decoded.id;
     
     console.log(`Voice disconnect: User ${userId} disconnecting from ${guildId}`);
-    
-    // Clear connection cache
-    const cacheKey = getCacheKey('voice-connection', userId);
-    cache.delete(cacheKey);
     
     res.json({ 
       success: true,
