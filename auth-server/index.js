@@ -152,7 +152,7 @@ app.get('/api/callback', async (req, res) => {
     // Check if we should use HTTP redirect (for local development)
     if (useHttp) {
       // Redirect to localhost:48766 for local development
-      const httpUrl = new URL('http://localhost:48766/auth/success');
+      const httpUrl = new URL('http://localhost:48766/auth/callback');
       httpUrl.searchParams.append('token', token);
       httpUrl.searchParams.append('guilds', JSON.stringify(commonGuilds));
       
