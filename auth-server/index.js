@@ -221,7 +221,7 @@ app.get('/api/callback', async (req, res) => {
       `);
     } else {
       // Original behavior: redirect to GUI app via protocol
-      const protocolUrl = new URL(`${process.env.FRONTEND_URL}auth/callback`);
+      const protocolUrl = new URL('/auth/callback', process.env.FRONTEND_URL);
       protocolUrl.searchParams.append('token', token);
       protocolUrl.searchParams.append('guilds', JSON.stringify(commonGuilds));
       
