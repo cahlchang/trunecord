@@ -1,16 +1,16 @@
 name: Efficient Build
 
 on:
-  # 開発中: Linux版のみビルド（1x消費）
+  # プッシュ時のトリガー
   push:
+    # ブランチへのプッシュ（開発中）
     branches: [main]
+    # タグへのプッシュ（リリース時）
+    tags: ['v*']
+    # パス制限（go-clientまたはworkflowに変更があった場合のみ）
     paths:
       - 'go-client/**'
       - '.github/workflows/**'
-  
-  # リリース時: 全OS版ビルド
-  push:
-    tags: ['v*']
   
   # 手動実行可能
   workflow_dispatch:
