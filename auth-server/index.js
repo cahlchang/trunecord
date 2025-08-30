@@ -4,14 +4,24 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const axios = require('axios');
 const rateLimit = require('express-rate-limit');
+const crypto = require('crypto');
 
 const app = express();
 
-// CORS configuration
-app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',
+// CORS configuration - avoid wildcard with credentials:true for security
+const corsOptions = {
   credentials: true
-}));
+};
+
+if (process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*') {
+  corsOptions.origin = process.env.FRONTEND_URL;
+} else {
+  // If no specific frontend URL is set, allow any origin but disable credentials
+  corsOptions.origin = '*';
+  corsOptions.credentials = false;
+}
+
+app.use(cors(corsOptions));
 
 app.use(express.json());
 
@@ -33,13 +43,27 @@ const generalApiRateLimit = rateLimit({
 });
 
 // Apply rate limiting to specific routes
-app.use('/api/voice/', voiceRateLimit);
-app.use('/api/', generalApiRateLimit);
+// Note: More specific routes must come before general routes
+app.use('/api/voice/', voiceRateLimit); // 100 req/min for voice endpoints
+app.use('/api/', generalApiRateLimit);  // 200 req/min for general API
 
 // Helper functions
 const generateState = () => {
-  return Math.random().toString(36).substring(2, 15) + 
-         Math.random().toString(36).substring(2, 15);
+  // Use crypto.randomBytes for secure random generation
+  return crypto.randomBytes(16).toString('hex');
+};
+
+const createSecureState = (data) => {
+  // Create JWT-signed state for OAuth security
+  return jwt.sign(data, process.env.JWT_SECRET, { expiresIn: '10m' });
+};
+
+const verifySecureState = (stateToken) => {
+  try {
+    return jwt.verify(stateToken, process.env.JWT_SECRET);
+  } catch (error) {
+    throw new Error('Invalid or expired state token');
+  }
 };
 
 // Routes
@@ -64,7 +88,7 @@ app.get('/api/health', (req, res) => {
 
 // Auth endpoint - redirects to Discord OAuth
 app.get('/api/auth', (req, res) => {
-  const state = generateState();
+  const randomState = generateState();
   
   // Check if client wants custom protocol redirect
   const redirectProtocol = req.query.redirect_protocol;
@@ -76,19 +100,20 @@ app.get('/api/auth', (req, res) => {
   console.log('[AUTH] Use protocol:', useProtocol);
   console.log('[AUTH] Use HTTP:', useHttp);
   
-  // Store protocol preference in state (encode it)
+  // Store protocol preference in secure JWT-signed state
   const stateData = {
-    random: state,
-    protocol: redirectProtocol || null
+    random: randomState,
+    protocol: redirectProtocol || null,
+    timestamp: Date.now()
   };
-  const encodedState = Buffer.from(JSON.stringify(stateData)).toString('base64');
+  const secureState = createSecureState(stateData);
   
   const params = new URLSearchParams({
     client_id: process.env.DISCORD_CLIENT_ID,
     redirect_uri: process.env.REDIRECT_URI,
     response_type: 'code',
     scope: 'identify guilds',
-    state: encodedState
+    state: secureState
   });
   
   console.log('[AUTH] State data:', stateData);
@@ -105,24 +130,23 @@ app.get('/api/callback', async (req, res) => {
     return res.status(400).json({ error: 'No code provided' });
   }
   
-  // Decode state to check for protocol preference
+  if (!state) {
+    return res.status(400).json({ error: 'No state provided - potential CSRF attack' });
+  }
+  
+  // Verify JWT-signed state for CSRF protection
   let useProtocol = false;
   let useHttp = false;
   try {
-    if (state) {
-      const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
-      useProtocol = stateData.protocol === 'trunecord';
-      useHttp = stateData.protocol === 'http';
-      console.log('[CALLBACK] Decoded state:', stateData);
-      console.log('[CALLBACK] Use protocol:', useProtocol);
-      console.log('[CALLBACK] Use HTTP:', useHttp);
-    } else {
-      console.log('[CALLBACK] No state provided');
-    }
+    const stateData = verifySecureState(state);
+    useProtocol = stateData.protocol === 'trunecord';
+    useHttp = stateData.protocol === 'http';
+    console.log('[CALLBACK] Verified state:', stateData);
+    console.log('[CALLBACK] Use protocol:', useProtocol);
+    console.log('[CALLBACK] Use HTTP:', useHttp);
   } catch (e) {
-    // If state parsing fails, default to no protocol
-    console.log('[CALLBACK] State parsing failed:', e.message);
-    console.log('[CALLBACK] Using default redirect');
+    console.error('[CALLBACK] State verification failed:', e.message);
+    return res.status(400).json({ error: 'Invalid state parameter - potential CSRF attack' });
   }
   
   try {
@@ -164,11 +188,13 @@ app.get('/api/callback', async (req, res) => {
       botGuilds.some(botGuild => botGuild.id === userGuild.id)
     );
     
-    // Create JWT token
+    // Create JWT token with guild information
     const token = jwt.sign({
       userId: userResponse.data.id,
       username: userResponse.data.username,
-      discriminator: userResponse.data.discriminator
+      discriminator: userResponse.data.discriminator,
+      // Store the list of guild IDs where both user and bot are present
+      guildIds: commonGuilds.map(g => g.id)
     }, process.env.JWT_SECRET, { expiresIn: '7d' });
     
     // Check if we should use HTTP redirect (for local development)
@@ -365,34 +391,40 @@ app.get('/api/verify', (req, res) => {
 });
 
 
-// Get guilds list (protected endpoint)
+// Get guilds list (protected endpoint - returns user's authorized guilds only)
 app.get('/api/guilds', async (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
   
+  // Security: JWT token is required to prevent information leakage
   if (!token) {
-    // No token provided - check if this is a desktop app request
-    console.log('[GUILDS] No auth token provided');
-    
-    // For desktop app, we don't need user token since bot token is on server
-    try {
-      const botGuilds = await getBotGuilds();
-      res.json(botGuilds);
-    } catch (error) {
-      console.error('[GUILDS] Error getting bot guilds:', error);
-      res.status(500).json({ error: 'Failed to get guilds' });
-    }
-    return;
+    return res.status(401).json({ error: 'No token provided' });
   }
   
   try {
-    // Verify JWT token if provided
-    jwt.verify(token, process.env.JWT_SECRET);
+    // Verify JWT token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
     // Get bot's guilds
     const botGuilds = await getBotGuilds();
-    res.json(botGuilds);
+    
+    // Filter to only return guilds the user has access to
+    // Use the guild IDs stored in the JWT token (set during OAuth callback)
+    let authorizedGuilds = botGuilds;
+    
+    if (decoded.guildIds && Array.isArray(decoded.guildIds)) {
+      // Return only guilds that are both in bot's guilds and user's authorized guilds
+      authorizedGuilds = botGuilds.filter(guild => 
+        decoded.guildIds.includes(guild.id)
+      );
+    } else {
+      // Legacy tokens without guildIds - return empty for security
+      console.warn(`User ${decoded.userId} has legacy token without guild information`);
+      return res.json([]);
+    }
+    
+    res.json(authorizedGuilds);
   } catch (error) {
-    if (error.name === 'JsonWebTokenError') {
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError' || error.name === 'NotBeforeError') {
       res.status(401).json({ error: 'Invalid token' });
     } else {
       res.status(500).json({ error: 'Failed to get guilds' });
@@ -410,8 +442,13 @@ app.get('/api/guilds/:guildId/channels', async (req, res) => {
   }
   
   try {
-    // Verify JWT token
-    jwt.verify(token, process.env.JWT_SECRET);
+    // Verify JWT token and check guild authorization
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Security: Verify user has access to this guild
+    if (!decoded.guildIds || !Array.isArray(decoded.guildIds) || !decoded.guildIds.includes(guildId)) {
+      return res.status(403).json({ error: 'Access denied: User is not authorized for this guild' });
+    }
     
     // Get guild channels using bot token
     const response = await axios.get(`https://discord.com/api/guilds/${guildId}/channels`, {
@@ -432,7 +469,7 @@ app.get('/api/guilds/:guildId/channels', async (req, res) => {
     
     res.json({ channels: voiceChannels });
   } catch (error) {
-    if (error.name === 'JsonWebTokenError') {
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError' || error.name === 'NotBeforeError') {
       res.status(401).json({ error: 'Invalid token' });
     } else {
       res.status(500).json({ error: 'Failed to get channels' });
@@ -474,7 +511,7 @@ app.get('/api/bot-token', async (req, res) => {
       deprecated: 'This endpoint is deprecated. Please use voice proxy endpoints instead.'
     });
   } catch (error) {
-    if (error.name === 'JsonWebTokenError') {
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError' || error.name === 'NotBeforeError') {
       res.status(401).json({ error: 'Invalid token' });
     } else {
       res.status(500).json({ error: 'Failed to get bot token' });
@@ -496,9 +533,14 @@ app.post('/api/voice/connect', async (req, res) => {
   }
   
   try {
-    // Verify JWT token
+    // Verify JWT token and check guild authorization
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.userId || decoded.id;
+    
+    // Security: Verify user has access to this guild
+    if (!decoded.guildIds || !Array.isArray(decoded.guildIds) || !decoded.guildIds.includes(guildId)) {
+      return res.status(403).json({ error: 'Access denied: User is not authorized for this guild' });
+    }
     
     console.log(`Voice connect: User ${userId} connecting to ${guildId}/${channelId}`);
     
@@ -514,7 +556,7 @@ app.post('/api/voice/connect', async (req, res) => {
     });
   } catch (error) {
     console.error('Voice connect error:', error);
-    if (error.name === 'JsonWebTokenError') {
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError' || error.name === 'NotBeforeError') {
       res.status(401).json({ error: 'Invalid token' });
     } else {
       res.status(500).json({ error: 'Failed to connect to voice channel' });
@@ -531,10 +573,19 @@ app.post('/api/voice/disconnect', async (req, res) => {
     return res.status(401).json({ error: 'No token provided' });
   }
   
+  if (!guildId) {
+    return res.status(400).json({ error: 'Missing guildId' });
+  }
+  
   try {
-    // Verify JWT token
+    // Verify JWT token and check guild authorization
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.userId || decoded.id;
+    
+    // Security: Verify user has access to this guild
+    if (!decoded.guildIds || !Array.isArray(decoded.guildIds) || !decoded.guildIds.includes(guildId)) {
+      return res.status(403).json({ error: 'Access denied: User is not authorized for this guild' });
+    }
     
     console.log(`Voice disconnect: User ${userId} disconnecting from ${guildId}`);
     
@@ -545,7 +596,7 @@ app.post('/api/voice/disconnect', async (req, res) => {
     });
   } catch (error) {
     console.error('Voice disconnect error:', error);
-    if (error.name === 'JsonWebTokenError') {
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError' || error.name === 'NotBeforeError') {
       res.status(401).json({ error: 'Invalid token' });
     } else {
       res.status(500).json({ error: 'Failed to disconnect from voice channel' });
@@ -572,5 +623,6 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
 
-// Export handler for Lambda
+// Export handler for Lambda and app for testing
 module.exports.handler = serverless(app);
+module.exports.app = app;
