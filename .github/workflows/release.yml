@@ -48,13 +48,11 @@ jobs:
             arch: arm64
             name: trunecord-darwin-arm64
             dmg_name: trunecord-arm64.dmg
-            
           # Windows builds  
           - os: windows-latest
             platform: windows
             arch: amd64
             name: trunecord-windows-amd64
-            
           # Linux builds
           - os: ubuntu-latest
             platform: linux
@@ -95,6 +93,13 @@ jobs:
             mingw-w64-x86_64-opus
             mingw-w64-x86_64-pkg-config
             mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-binutils
+      
+      - name: Add MSYS2 to PATH (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          echo "C:\msys64\mingw64\bin" >> $env:GITHUB_PATH
 
       # Prepare icons for macOS
       - name: Create macOS Icon
@@ -103,28 +108,41 @@ jobs:
           cd go-client
           # Create icon from extension assets
           mkdir -p assets
-          if [ -f "../extension/assets/icons/icon128.png" ]; then
+          
+          # Find the largest icon file available
+          ICON_SOURCE=""
+          for size in 512 256 128 64 48 32 16; do
+            if [ -f "../extension/assets/icons/icon${size}.png" ]; then
+              ICON_SOURCE="../extension/assets/icons/icon${size}.png"
+              echo "Using icon source: $ICON_SOURCE"
+              break
+            fi
+          done
+          
+          if [ -n "$ICON_SOURCE" ]; then
             # Create iconset directory
             ICONSET="assets/AppIcon.iconset"
             rm -rf "$ICONSET"
             mkdir -p "$ICONSET"
             
             # Generate different sizes
-            sips -z 16 16     "../extension/assets/icons/icon128.png" --out "$ICONSET/icon_16x16.png"      > /dev/null 2>&1
-            sips -z 32 32     "../extension/assets/icons/icon128.png" --out "$ICONSET/icon_16x16@2x.png"   > /dev/null 2>&1
-            sips -z 32 32     "../extension/assets/icons/icon128.png" --out "$ICONSET/icon_32x32.png"      > /dev/null 2>&1
-            sips -z 64 64     "../extension/assets/icons/icon128.png" --out "$ICONSET/icon_32x32@2x.png"   > /dev/null 2>&1
-            sips -z 128 128   "../extension/assets/icons/icon128.png" --out "$ICONSET/icon_128x128.png"    > /dev/null 2>&1
-            sips -z 256 256   "../extension/assets/icons/icon128.png" --out "$ICONSET/icon_128x128@2x.png" > /dev/null 2>&1
-            sips -z 256 256   "../extension/assets/icons/icon128.png" --out "$ICONSET/icon_256x256.png"    > /dev/null 2>&1
-            sips -z 512 512   "../extension/assets/icons/icon128.png" --out "$ICONSET/icon_256x256@2x.png" > /dev/null 2>&1
-            sips -z 512 512   "../extension/assets/icons/icon128.png" --out "$ICONSET/icon_512x512.png"    > /dev/null 2>&1
-            sips -z 1024 1024 "../extension/assets/icons/icon128.png" --out "$ICONSET/icon_512x512@2x.png" > /dev/null 2>&1
+            sips -z 16 16     "$ICON_SOURCE" --out "$ICONSET/icon_16x16.png"      > /dev/null 2>&1
+            sips -z 32 32     "$ICON_SOURCE" --out "$ICONSET/icon_16x16@2x.png"   > /dev/null 2>&1
+            sips -z 32 32     "$ICON_SOURCE" --out "$ICONSET/icon_32x32.png"      > /dev/null 2>&1
+            sips -z 64 64     "$ICON_SOURCE" --out "$ICONSET/icon_32x32@2x.png"   > /dev/null 2>&1
+            sips -z 128 128   "$ICON_SOURCE" --out "$ICONSET/icon_128x128.png"    > /dev/null 2>&1
+            sips -z 256 256   "$ICON_SOURCE" --out "$ICONSET/icon_128x128@2x.png" > /dev/null 2>&1
+            sips -z 256 256   "$ICON_SOURCE" --out "$ICONSET/icon_256x256.png"    > /dev/null 2>&1
+            sips -z 512 512   "$ICON_SOURCE" --out "$ICONSET/icon_256x256@2x.png" > /dev/null 2>&1
+            sips -z 512 512   "$ICON_SOURCE" --out "$ICONSET/icon_512x512.png"    > /dev/null 2>&1
+            sips -z 1024 1024 "$ICON_SOURCE" --out "$ICONSET/icon_512x512@2x.png" > /dev/null 2>&1
             
             # Convert to icns
             iconutil -c icns "$ICONSET" -o "assets/AppIcon.icns"
             rm -rf "$ICONSET"
             echo "✅ Created AppIcon.icns"
+          else
+            echo "⚠️ No icon file found in extension/assets/icons/"
           fi
 
       # Prepare resources for Windows
@@ -144,19 +162,30 @@ jobs:
             }
           }
           
-          # Create icon file from PNG
-          if (Test-Path "../extension/assets/icons/icon128.png") {
+          # Find the largest icon file available
+          $iconSource = ""
+          foreach ($size in @(512, 256, 128, 64, 48, 32, 16)) {
+            $iconPath = "../extension/assets/icons/icon$size.png"
+            if (Test-Path $iconPath) {
+              $iconSource = (Resolve-Path $iconPath).Path
+              Write-Host "Using icon source: $iconSource"
+              break
+            }
+          }
+          
+          if ($iconSource -ne "") {
             # Use ImageMagick on Windows if available (GitHub Actions has it)
-            $pngPath = (Resolve-Path "../extension/assets/icons/icon128.png").Path
-            magick convert "$pngPath" -resize 16x16 icon_16.png
-            magick convert "$pngPath" -resize 32x32 icon_32.png
-            magick convert "$pngPath" -resize 48x48 icon_48.png
-            magick convert "$pngPath" -resize 64x64 icon_64.png
-            magick convert "$pngPath" -resize 128x128 icon_128.png
-            magick convert "$pngPath" -resize 256x256 icon_256.png
+            magick convert "$iconSource" -resize 16x16 icon_16.png
+            magick convert "$iconSource" -resize 32x32 icon_32.png
+            magick convert "$iconSource" -resize 48x48 icon_48.png
+            magick convert "$iconSource" -resize 64x64 icon_64.png
+            magick convert "$iconSource" -resize 128x128 icon_128.png
+            magick convert "$iconSource" -resize 256x256 icon_256.png
             magick convert icon_16.png icon_32.png icon_48.png icon_64.png icon_128.png icon_256.png trunecord.ico
             Remove-Item icon_*.png
             Write-Host "✅ Created trunecord.ico"
+          } else {
+            Write-Host "⚠️ No icon file found in extension/assets/icons/"
           }
 
       # Build the browser application
