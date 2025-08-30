@@ -1,6 +1,8 @@
 // Button states
 let isStreaming = false;
+let isSendingAudio = true; // Default: send audio to Discord
 let discordButton = null;
+let hasPausedOnDisconnect = false;
 
 // Create Discord button
 function createDiscordButton() {
@@ -23,47 +25,73 @@ function createDiscordButton() {
 async function toggleStream() {
   if (!discordButton) return;
   
+  // If not streaming, toggle the sending mode
+  if (!isStreaming) {
+    isSendingAudio = !isSendingAudio;
+    updateButtonState();
+    
+    // Save preference
+    chrome.storage.local.set({ isSendingAudio: isSendingAudio });
+    
+    const message = isSendingAudio 
+      ? chrome.i18n.getMessage('audioSendingEnabled') || 'Audio will be sent to Discord'
+      : chrome.i18n.getMessage('audioSendingDisabled') || 'Audio will play normally';
+    showNotification(message);
+    return;
+  }
+  
+  // If streaming, stop the stream
   discordButton.disabled = true;
   
   try {
-    if (!isStreaming) {
-      chrome.runtime.sendMessage({ action: 'startStream' }, (response) => {
-        if (chrome.runtime.lastError) {
-          showNotification('Failed to communicate with extension');
-          discordButton.disabled = false;
-          return;
-        }
-        
-        if (response && response.success) {
-          isStreaming = true;
-          updateButtonState();
-        } else if (response) {
-          if (response.error && response.error.includes('extension popup')) {
-            showNotification('⚠️ Click the extension icon in toolbar to start streaming');
-            discordButton.style.opacity = '0.6';
-            discordButton.title = 'Click the extension icon in toolbar to start';
-          } else {
-            showNotification(response.error || 'Failed to start streaming');
-          }
-        }
+    chrome.runtime.sendMessage({ action: 'stopStream' }, (response) => {
+      if (chrome.runtime.lastError) {
         discordButton.disabled = false;
-      });
-    } else {
-      chrome.runtime.sendMessage({ action: 'stopStream' }, (response) => {
-        if (chrome.runtime.lastError) {
-          discordButton.disabled = false;
-          return;
-        }
-        
-        if (response && response.success) {
-          isStreaming = false;
-          updateButtonState();
-        }
-        discordButton.disabled = false;
-      });
-    }
+        return;
+      }
+      
+      if (response && response.success) {
+        isStreaming = false;
+        updateButtonState();
+      }
+      discordButton.disabled = false;
+    });
   } catch (error) {
-    showNotification('Failed to connect. Make sure the local client is running.');
+    showNotification(chrome.i18n.getMessage('failedToConnect'));
+    discordButton.disabled = false;
+  }
+}
+
+// Start streaming (called from different action)
+async function startStream() {
+  if (!discordButton || !isSendingAudio) return;
+  
+  discordButton.disabled = true;
+  
+  try {
+    chrome.runtime.sendMessage({ action: 'startStream' }, (response) => {
+      if (chrome.runtime.lastError) {
+        showNotification(chrome.i18n.getMessage('failedToCommunicate'));
+        discordButton.disabled = false;
+        return;
+      }
+      
+      if (response && response.success) {
+        isStreaming = true;
+        updateButtonState();
+      } else if (response) {
+        if (response.error && response.error.includes('extension popup')) {
+          showNotification('⚠️ ' + chrome.i18n.getMessage('clickExtensionIcon'), true);
+          discordButton.style.opacity = '0.6';
+          discordButton.title = chrome.i18n.getMessage('clickExtensionIcon');
+        } else {
+          showNotification(response.error || chrome.i18n.getMessage('failedToStartStreaming'));
+        }
+      }
+      discordButton.disabled = false;
+    });
+  } catch (error) {
+    showNotification(chrome.i18n.getMessage('failedToConnect'));
     discordButton.disabled = false;
   }
 }
@@ -72,19 +100,27 @@ async function toggleStream() {
 function updateButtonState() {
   if (!discordButton) return;
   
+  const span = discordButton.querySelector('span');
+  
   if (isStreaming) {
     discordButton.classList.add('streaming');
-    discordButton.querySelector('span').textContent = 'Stop';
+    discordButton.classList.remove('disabled-mode');
+    span.textContent = chrome.i18n.getMessage('stop') || 'Stop';
+  } else if (!isSendingAudio) {
+    discordButton.classList.remove('streaming');
+    discordButton.classList.add('disabled-mode');
+    span.textContent = chrome.i18n.getMessage('normalPlayback') || 'Normal';
   } else {
     discordButton.classList.remove('streaming');
-    discordButton.querySelector('span').textContent = 'Streaming';
+    discordButton.classList.remove('disabled-mode');
+    span.textContent = chrome.i18n.getMessage('streaming') || 'Discord';
   }
 }
 
 // Show notification
-function showNotification(message) {
+function showNotification(message, isWarning = false) {
   const notification = document.createElement('div');
-  notification.className = 'discord-notification';
+  notification.className = 'discord-notification' + (isWarning ? ' warning' : '');
   notification.textContent = message;
   
   document.body.appendChild(notification);
@@ -93,10 +129,12 @@ function showNotification(message) {
     notification.classList.add('show');
   }, 10);
   
+  const duration = isWarning ? 5000 : 3000; // Show warning messages longer
+  
   setTimeout(() => {
     notification.classList.remove('show');
     setTimeout(() => notification.remove(), 300);
-  }, 3000);
+  }, duration);
 }
 
 // Insert button into YouTube Music player
@@ -131,11 +169,20 @@ function insertButton() {
   
   // Check initial streaming status
   checkStreamingStatus();
+  
+  // Listen for music playback events
+  observeMusicPlayback();
 }
 
 // Check streaming status
 async function checkStreamingStatus() {
   try {
+    // Load saved preference
+    const result = await chrome.storage.local.get(['isSendingAudio']);
+    if (result.isSendingAudio !== undefined) {
+      isSendingAudio = result.isSendingAudio;
+    }
+    
     const response = await chrome.runtime.sendMessage({ action: 'getStreamStatus' });
     isStreaming = response.isStreaming;
     updateButtonState();
@@ -149,8 +196,62 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'streamingStateChanged') {
     isStreaming = request.isStreaming;
     updateButtonState();
+    
+    // Reset pause flag when streaming starts
+    if (isStreaming) {
+      hasPausedOnDisconnect = false;
+    }
+  } else if (request.action === 'connectionLost') {
+    isStreaming = false;
+    updateButtonState();
+    showNotification(chrome.i18n.getMessage('connectionLost') || 'Connection to local client lost');
+    
+    // Reset button opacity and title
+    if (discordButton) {
+      discordButton.style.opacity = '1';
+      discordButton.title = '';
+    }
+    
+    // Pause YouTube Music if playing (only once)
+    if (!hasPausedOnDisconnect) {
+      hasPausedOnDisconnect = true;
+      pauseYouTubeMusic();
+    }
+  } else if (request.action === 'waitingModeStop') {
+    isStreaming = false;
+    updateButtonState();
+    showNotification(chrome.i18n.getMessage('waitingModeStop') || 'Someone joined the voice channel - streaming stopped');
+    
+    // Reset button opacity and title
+    if (discordButton) {
+      discordButton.style.opacity = '1';
+      discordButton.title = '';
+    }
+    
+    // Pause YouTube Music
+    pauseYouTubeMusic();
   }
 });
+
+// Pause YouTube Music playback
+function pauseYouTubeMusic() {
+  // Find the play/pause button
+  const playPauseButton = document.querySelector('tp-yt-paper-icon-button#play-pause-button');
+  
+  if (playPauseButton) {
+    // Check if currently playing by looking at the title attribute
+    const isPlaying = playPauseButton.title && 
+                     (playPauseButton.title.toLowerCase().includes('pause') || 
+                      playPauseButton.title === chrome.i18n.getMessage('pause') ||
+                      playPauseButton.getAttribute('aria-label')?.toLowerCase().includes('pause'));
+    
+    if (isPlaying) {
+      // Click the button to pause
+      playPauseButton.click();
+      console.log('YouTube Music paused due to connection loss');
+    }
+  }
+}
 
 // Initialize when page loads
 if (document.readyState === 'loading') {
@@ -170,3 +271,42 @@ observer.observe(document.body, {
   childList: true,
   subtree: true
 });
+
+// Observe music playback events
+function observeMusicPlayback() {
+  let wasPlaying = false;
+  
+  const checkPlaybackState = () => {
+    const playPauseButton = document.querySelector('tp-yt-paper-icon-button#play-pause-button');
+    
+    if (playPauseButton) {
+      const isPlaying = playPauseButton.title && 
+                       (playPauseButton.title.toLowerCase().includes('pause') || 
+                        playPauseButton.title === chrome.i18n.getMessage('pause') ||
+                        playPauseButton.getAttribute('aria-label')?.toLowerCase().includes('pause'));
+      
+      // If just started playing and audio sending is enabled but not streaming
+      if (isPlaying && !wasPlaying && isSendingAudio && !isStreaming) {
+        // Automatically start streaming
+        startStream();
+      }
+      
+      wasPlaying = isPlaying;
+    }
+  };
+  
+  // Check periodically
+  setInterval(checkPlaybackState, 1000);
+  
+  // Also observe play button changes
+  const playButtonObserver = new MutationObserver(checkPlaybackState);
+  const playerBar = document.querySelector('ytmusic-player-bar');
+  if (playerBar) {
+    playButtonObserver.observe(playerBar, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['title', 'aria-label']
+    });
+  }
+}

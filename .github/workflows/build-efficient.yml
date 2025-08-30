@@ -1,0 +1,131 @@
+name: Efficient Build
+
+on:
+  # 開発中: Linux版のみビルド（1x消費）
+  push:
+    branches: [main]
+    paths:
+      - 'go-client/**'
+      - '.github/workflows/**'
+  
+  # リリース時: 全OS版ビルド
+  push:
+    tags: ['v*']
+  
+  # 手動実行可能
+  workflow_dispatch:
+    inputs:
+      build_all:
+        description: 'Build all platforms'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  # Linux版は常にビルド（消費少ない）
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+          cache: true
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libayatana-appindicator3-dev
+          sudo apt-get install -y build-essential libopus-dev
+      
+      - name: Build
+        run: |
+          cd go-client
+          mkdir -p build/bin
+          CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o build/bin/trunecord-linux-amd64 cmd/main.go
+      
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trunecord-linux
+          path: go-client/build/bin/*
+
+  # Windows/macOS版は条件付き
+  build-others:
+    # リリースタグまたは手動実行時のみ
+    if: |
+      startsWith(github.ref, 'refs/tags/') || 
+      github.event.inputs.build_all == 'true'
+    
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            name: windows
+            multiplier: 2x
+          - os: macos-latest  
+            name: macos
+            multiplier: 10x
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+          cache: true
+      
+      # macOS依存関係
+      - name: macOS dependencies
+        if: runner.os == 'macOS'
+        run: brew install opus
+      
+      # Windows依存関係
+      - name: Windows dependencies  
+        if: runner.os == 'Windows'
+        run: choco install mingw
+      
+      - name: Build
+        shell: bash
+        run: |
+          cd go-client
+          mkdir -p build/bin
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -o build/bin/trunecord-windows-amd64.exe cmd/main.go
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -o build/bin/trunecord-darwin-amd64 cmd/main.go
+          fi
+      
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trunecord-${{ matrix.name }}
+          path: |
+            go-client/build/bin/*.exe
+            go-client/build/bin/*.app
+            go-client/build/bin/*.dmg
+
+  # 使用分数レポート
+  report-usage:
+    runs-on: ubuntu-latest
+    needs: [build-linux, build-others]
+    if: always()
+    steps:
+      - name: Calculate usage
+        run: |
+          echo "=== GitHub Actions Usage ==="
+          echo "Linux:   ~5分 × 1  =   5分"
+          if [ "${{ startsWith(github.ref, 'refs/tags/') }}" = "true" ]; then
+            echo "Windows: ~5分 × 2  =  10分"
+            echo "macOS:   ~5分 × 10 =  50分"
+            echo "─────────────────────────"
+            echo "Total:              = 65分"
+          else
+            echo "Windows: スキップ"
+            echo "macOS:   スキップ"
+            echo "─────────────────────────"
+            echo "Total:              = 5分"
+          fi
+          echo ""
+          echo "残り無料枠: 約$((2000 - 65))分"

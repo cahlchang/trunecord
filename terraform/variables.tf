@@ -45,3 +45,9 @@ variable "jwt_secret" {
   type        = string
   sensitive   = true
 }
+
+variable "enable_bot_token_endpoint" {
+  description = "Enable bot token endpoint (required for current go-client implementation)"
+  type        = string
+  default     = "true"
+}

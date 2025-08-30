@@ -1,227 +1,367 @@
 #!/bin/bash
-# Package macOS binary as an app bundle
 
-set -e
+# Comprehensive macOS packaging script for trunecord
+# Creates .app bundle, DMG, and optionally signs the application
 
-if [ $# -ne 3 ]; then
-    echo "Usage: $0 <binary-path> <output-dir> <arch>"
+set -euo pipefail
+
+# Configuration
+APP_NAME="trunecord"
+VERSION="1.0.0"
+BUNDLE_ID="com.trunecord.app"
+BUILD_DIR="build"
+DIST_DIR="dist"
+APP_BUNDLE="$BUILD_DIR/$APP_NAME.app"
+DMG_NAME="$APP_NAME-$VERSION-macOS"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Functions
+log_info() {
+    echo -e "${BLUE}ℹ️  $1${NC}"
+}
+
+log_success() {
+    echo -e "${GREEN}✅ $1${NC}"
+}
+
+log_warning() {
+    echo -e "${YELLOW}⚠️  $1${NC}"
+}
+
+log_error() {
+    echo -e "${RED}❌ $1${NC}"
     exit 1
+}
+
+# Parse command line arguments
+BUILD_UNIVERSAL=false
+SIGN_APP=false
+NOTARIZE=false
+DEVELOPER_ID=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --universal)
+            BUILD_UNIVERSAL=true
+            shift
+            ;;
+        --sign)
+            SIGN_APP=true
+            shift
+            ;;
+        --developer-id)
+            DEVELOPER_ID="$2"
+            SIGN_APP=true
+            shift 2
+            ;;
+        --notarize)
+            NOTARIZE=true
+            SIGN_APP=true
+            shift
+            ;;
+        --version)
+            VERSION="$2"
+            shift 2
+            ;;
+        --help)
+            echo "Usage: $0 [options]"
+            echo ""
+            echo "Options:"
+            echo "  --universal          Build universal binary (Intel + Apple Silicon)"
+            echo "  --sign              Sign the application"
+            echo "  --developer-id ID   Developer ID for signing"
+            echo "  --notarize          Notarize the application (requires signing)"
+            echo "  --version VERSION   Set version number (default: 1.0.0)"
+            echo "  --help              Show this help message"
+            exit 0
+            ;;
+        *)
+            log_error "Unknown option: $1"
+            ;;
+    esac
+done
+
+# Start packaging process
+echo ""
+echo "======================================"
+echo "   📦 trunecord macOS Packager"
+echo "======================================"
+echo ""
+log_info "Version: $VERSION"
+log_info "Universal Binary: $BUILD_UNIVERSAL"
+log_info "Code Signing: $SIGN_APP"
+log_info "Notarization: $NOTARIZE"
+echo ""
+
+# Clean previous builds
+log_info "Cleaning previous builds..."
+rm -rf "$BUILD_DIR" "$DIST_DIR"
+mkdir -p "$BUILD_DIR" "$DIST_DIR"
+
+# Build the Go binary
+log_info "Building Go binary..."
+if [ "$BUILD_UNIVERSAL" = true ]; then
+    log_info "Building universal binary (Intel + Apple Silicon)..."
+    
+    # Build for Intel
+    CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build \
+        -ldflags="-s -w -X main.Version=$VERSION" \
+        -o "$BUILD_DIR/trunecord-amd64" \
+        cmd/main.go
+    
+    # Build for Apple Silicon
+    CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build \
+        -ldflags="-s -w -X main.Version=$VERSION" \
+        -o "$BUILD_DIR/trunecord-arm64" \
+        cmd/main.go
+    
+    # Create universal binary
+    lipo -create -output "$BUILD_DIR/trunecord" \
+        "$BUILD_DIR/trunecord-amd64" \
+        "$BUILD_DIR/trunecord-arm64"
+    
+    # Clean up individual binaries
+    rm "$BUILD_DIR/trunecord-amd64" "$BUILD_DIR/trunecord-arm64"
+    
+    log_success "Universal binary created"
+else
+    # Build for current architecture
+    CGO_ENABLED=1 go build \
+        -ldflags="-s -w -X main.Version=$VERSION" \
+        -o "$BUILD_DIR/trunecord" \
+        cmd/main.go
+    
+    log_success "Binary built for current architecture"
 fi
 
-BINARY_PATH=$1
-OUTPUT_DIR=$2
-ARCH=$3
-APP_NAME="trunecord"
-BUNDLE_NAME="${APP_NAME}.app"
-
 # Create app bundle structure
-BUNDLE_PATH="${OUTPUT_DIR}/${BUNDLE_NAME}"
-mkdir -p "${BUNDLE_PATH}/Contents/MacOS"
-mkdir -p "${BUNDLE_PATH}/Contents/Resources"
+log_info "Creating app bundle..."
+mkdir -p "$APP_BUNDLE/Contents/MacOS"
+mkdir -p "$APP_BUNDLE/Contents/Resources"
 
-# Copy binary
-cp "$BINARY_PATH" "${BUNDLE_PATH}/Contents/MacOS/${APP_NAME}"
-chmod +x "${BUNDLE_PATH}/Contents/MacOS/${APP_NAME}"
+# Move binary to app bundle
+mv "$BUILD_DIR/trunecord" "$APP_BUNDLE/Contents/MacOS/"
+chmod +x "$APP_BUNDLE/Contents/MacOS/trunecord"
 
 # Create Info.plist
-cat > "${BUNDLE_PATH}/Contents/Info.plist" << EOF
+log_info "Creating Info.plist..."
+cat > "$APP_BUNDLE/Contents/Info.plist" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key>
-    <string>${APP_NAME}</string>
+    <string>$APP_NAME</string>
     <key>CFBundleIdentifier</key>
-    <string>com.trunecord.app</string>
+    <string>$BUNDLE_ID</string>
     <key>CFBundleName</key>
-    <string>trunecord</string>
+    <string>$APP_NAME</string>
     <key>CFBundleDisplayName</key>
-    <string>trunecord (Music to Discord)</string>
+    <string>trunecord</string>
     <key>CFBundleVersion</key>
-    <string>1.0.3</string>
+    <string>$VERSION</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.3</string>
-    <key>CFBundleIconFile</key>
-    <string>icon</string>
+    <string>$VERSION</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleSignature</key>
     <string>????</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>LSMinimumSystemVersion</key>
-    <string>10.12</string>
+    <string>10.14</string>
     <key>NSHighResolutionCapable</key>
     <true/>
-    <key>LSUIElement</key>
+    <key>NSSupportsAutomaticGraphicsSwitching</key>
     <true/>
-    <key>LSBackgroundOnly</key>
+    <key>LSUIElement</key>
     <false/>
-    <key>NSUserNotificationAlertStyle</key>
-    <string>alert</string>
-    <key>NSPrincipalClass</key>
-    <string>NSApplication</string>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>trunecord URL</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>trunecord</string>
+            </array>
+        </dict>
+    </array>
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <!-- Allow local networking for development server -->
+        <key>NSAllowsLocalNetworking</key>
+        <true/>
+        <!-- Allow arbitrary loads only if needed for Discord OAuth -->
+        <!-- Consider restricting to specific domains in production -->
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
+    </dict>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>trunecord needs access to microphone for audio streaming</string>
 </dict>
 </plist>
 EOF
 
-# Create launcher script
-cat > "${BUNDLE_PATH}/Contents/MacOS/${APP_NAME}-launcher" << 'EOF'
-#!/bin/bash
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-LOG_DIR="$HOME/Library/Logs/trunecord"
-LOG_FILE="$LOG_DIR/trunecord.log"
-
-# Create log directory if it doesn't exist
-mkdir -p "$LOG_DIR"
-
-# Check if trunecord is already running
-if pgrep -f "${DIR}/trunecord-bin" > /dev/null; then
-    # If running, open the web interface
-    open "http://localhost:48766"
-else
-    # Start trunecord in background and redirect output to log
-    # The app will show in menu bar
-    "${DIR}/trunecord-bin" >> "$LOG_FILE" 2>&1 &
-    
-    # Wait a moment for the server to start
-    sleep 2
-    
-    # Open the web interface
-    open "http://localhost:48766"
-fi
-EOF
-chmod +x "${BUNDLE_PATH}/Contents/MacOS/${APP_NAME}-launcher"
-
-# Rename the actual binary and make launcher the main executable
-mv "${BUNDLE_PATH}/Contents/MacOS/${APP_NAME}" "${BUNDLE_PATH}/Contents/MacOS/${APP_NAME}-bin"
-mv "${BUNDLE_PATH}/Contents/MacOS/${APP_NAME}-launcher" "${BUNDLE_PATH}/Contents/MacOS/${APP_NAME}"
-
-# Create stop script
-cat > "${BUNDLE_PATH}/Contents/MacOS/stop-trunecord" << 'EOF'
-#!/bin/bash
-# Stop trunecord if it's running
-pkill -f "trunecord-bin"
-osascript -e 'display notification "trunecord has been stopped" with title "trunecord Stopped"'
-EOF
-chmod +x "${BUNDLE_PATH}/Contents/MacOS/stop-trunecord"
-
-# Create icon from PNG if available
-# Try multiple possible locations
-for PNG_PATH in "${OUTPUT_DIR}/../../resource/image.png" "../resource/image.png" "resource/image.png"; do
-    if [ -f "$PNG_PATH" ]; then
-        ICON_PNG="$PNG_PATH"
-        break
+# Create or copy icon
+if [ -f "assets/AppIcon.icns" ]; then
+    log_info "Copying existing icon..."
+    cp "assets/AppIcon.icns" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
+elif [ -f "../extension/assets/icons/icon128.png" ] || [ -f "internal/icon/icon.png" ]; then
+    log_info "Creating icon from PNG..."
+    ./scripts/create-icns.sh > /dev/null 2>&1 || true
+    if [ -f "assets/AppIcon.icns" ]; then
+        cp "assets/AppIcon.icns" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
+    else
+        log_warning "Failed to create icon"
     fi
-done
-
-if [ -n "$ICON_PNG" ] && [ -f "$ICON_PNG" ]; then
-    # Create temporary directory for icon generation
-    ICON_TEMP="${OUTPUT_DIR}/icon.iconset"
-    mkdir -p "$ICON_TEMP"
-    
-    # Generate various icon sizes using sips
-    sips -z 16 16     "$ICON_PNG" --out "${ICON_TEMP}/icon_16x16.png"
-    sips -z 32 32     "$ICON_PNG" --out "${ICON_TEMP}/icon_16x16@2x.png"
-    sips -z 32 32     "$ICON_PNG" --out "${ICON_TEMP}/icon_32x32.png"
-    sips -z 64 64     "$ICON_PNG" --out "${ICON_TEMP}/icon_32x32@2x.png"
-    sips -z 128 128   "$ICON_PNG" --out "${ICON_TEMP}/icon_128x128.png"
-    sips -z 256 256   "$ICON_PNG" --out "${ICON_TEMP}/icon_128x128@2x.png"
-    sips -z 256 256   "$ICON_PNG" --out "${ICON_TEMP}/icon_256x256.png"
-    sips -z 512 512   "$ICON_PNG" --out "${ICON_TEMP}/icon_256x256@2x.png"
-    sips -z 512 512   "$ICON_PNG" --out "${ICON_TEMP}/icon_512x512.png"
-    sips -z 1024 1024 "$ICON_PNG" --out "${ICON_TEMP}/icon_512x512@2x.png"
-    
-    # Convert to icns
-    iconutil -c icns "$ICON_TEMP" -o "${BUNDLE_PATH}/Contents/Resources/icon.icns"
-    rm -rf "$ICON_TEMP"
-    
-    echo "Created app icon from ${ICON_PNG}"
 else
-    # Create placeholder icon
-    touch "${BUNDLE_PATH}/Contents/Resources/icon.icns"
+    log_warning "No icon found"
 fi
 
-# Create a simple README for the DMG
-cat > "${OUTPUT_DIR}/README.txt" << 'EOF'
-trunecord for macOS - Installation Guide
-========================================
+# Code signing
+if [ "$SIGN_APP" = true ]; then
+    if [ -z "$DEVELOPER_ID" ]; then
+        # Try to find developer ID automatically
+        DEVELOPER_ID=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | cut -d'"' -f2)
+        if [ -z "$DEVELOPER_ID" ]; then
+            log_warning "No Developer ID found, skipping signing"
+            SIGN_APP=false
+        fi
+    fi
+    
+    if [ "$SIGN_APP" = true ]; then
+        log_info "Signing application with: $DEVELOPER_ID"
+        
+        # Sign frameworks first if they exist
+        if [ -d "$APP_BUNDLE/Contents/Frameworks" ]; then
+            find "$APP_BUNDLE/Contents/Frameworks" -name "*.framework" -exec \
+                codesign --force --sign "$DEVELOPER_ID" --options runtime {} \;
+        fi
+        
+        # Sign the binary
+        codesign --force --sign "$DEVELOPER_ID" \
+            --entitlements entitlements.plist \
+            --options runtime \
+            "$APP_BUNDLE/Contents/MacOS/trunecord" 2>/dev/null || \
+        codesign --force --sign "$DEVELOPER_ID" \
+            "$APP_BUNDLE/Contents/MacOS/trunecord"
+        
+        # Sign the entire app bundle (avoid --deep as last resort)
+        codesign --force --sign "$DEVELOPER_ID" \
+            --entitlements entitlements.plist \
+            --options runtime \
+            "$APP_BUNDLE" 2>/dev/null || \
+        codesign --force --deep --sign "$DEVELOPER_ID" \
+            "$APP_BUNDLE"
+        
+        # Verify signature
+        codesign --verify --verbose "$APP_BUNDLE"
+        log_success "Application signed successfully"
+    fi
+fi
 
-INSTALLATION:
-1. Drag "trunecord.app" to the "Applications" folder (shortcut provided)
-2. Close this window
-3. Open "trunecord.app" from your Applications folder
-   (First time: Right-click → Open to bypass Gatekeeper)
+# Create DMG
+log_info "Creating DMG installer..."
 
-USAGE:
-- The app runs in the menu bar (look for ♫ icon)
-- Your browser will automatically open to http://localhost:48766
-- Configure Discord settings in the web interface
-- Click the menu bar icon to:
-  - View connection status
-  - Open web interface
-  - View logs
-  - Quit the app
+# Create temporary directory for DMG contents
+DMG_TEMP="$BUILD_DIR/dmg-temp"
+mkdir -p "$DMG_TEMP"
 
-TO STOP:
-- Click the ♫ icon in menu bar → Quit trunecord
-- Or use Activity Monitor to quit "trunecord-bin"
+# Copy app to DMG temp
+cp -R "$APP_BUNDLE" "$DMG_TEMP/"
 
-LOGS:
-- ~/Library/Logs/trunecord/trunecord.log
+# Create symbolic link to Applications
+ln -s /Applications "$DMG_TEMP/Applications"
 
-SUPPORT:
-- https://github.com/cahlchang/trunecord
-EOF
+# Create DMG background and setup (optional)
+if [ -f "assets/dmg-background.png" ]; then
+    mkdir -p "$DMG_TEMP/.background"
+    cp "assets/dmg-background.png" "$DMG_TEMP/.background/background.png"
+fi
 
-# Create a temporary directory for DMG contents
-DMG_TEMP="${OUTPUT_DIR}/dmg-temp"
-mkdir -p "${DMG_TEMP}"
-cp -r "${BUNDLE_PATH}" "${DMG_TEMP}/"
-ln -s /Applications "${DMG_TEMP}/Applications"
-cp "${OUTPUT_DIR}/README.txt" "${DMG_TEMP}/"
+# Create DS_Store for DMG layout (optional)
+if [ -f "assets/DS_Store" ]; then
+    cp "assets/DS_Store" "$DMG_TEMP/.DS_Store"
+fi
 
-# Create DMG with nice layout
-DMG_NAME="trunecord-darwin-${ARCH}.dmg"
-DMG_TEMP_NAME="trunecord-temp.dmg"
+# Build DMG
+hdiutil create -fs HFS+ \
+    -volname "$APP_NAME" \
+    -srcfolder "$DMG_TEMP" \
+    "$DIST_DIR/$DMG_NAME.dmg" \
+    -ov -format UDZO
 
-# Create initial DMG
-hdiutil create -volname "trunecord" -srcfolder "${DMG_TEMP}" -ov -format UDRW -size 100m "${OUTPUT_DIR}/${DMG_TEMP_NAME}"
+# Clean up temp directory
+rm -rf "$DMG_TEMP"
 
-# Mount the DMG
-DEVICE=$(hdiutil attach -readwrite -noverify -noautoopen "${OUTPUT_DIR}/${DMG_TEMP_NAME}" | egrep '^/dev/' | sed 1q | awk '{print $1}')
+log_success "DMG created: $DIST_DIR/$DMG_NAME.dmg"
 
-# Wait for mount
-sleep 2
+# Notarization
+if [ "$NOTARIZE" = true ] && [ "$SIGN_APP" = true ]; then
+    log_info "Notarizing application..."
+    log_warning "Notarization requires Apple Developer account credentials"
+    
+    # Note: Actual notarization would require:
+    # xcrun altool --notarize-app \
+    #     --primary-bundle-id "$BUNDLE_ID" \
+    #     --username "YOUR_APPLE_ID" \
+    #     --password "YOUR_APP_SPECIFIC_PASSWORD" \
+    #     --file "$DIST_DIR/$DMG_NAME.dmg"
+    
+    log_warning "Automatic notarization not implemented. Please notarize manually."
+fi
 
-# Set DMG window properties using AppleScript
-osascript << EOF
-tell application "Finder"
-    tell disk "trunecord"
-        open
-        set current view of container window to icon view
-        set toolbar visible of container window to false
-        set statusbar visible of container window to false
-        set bounds of container window to {400, 100, 900, 450}
-        set viewOptions to the icon view options of container window
-        set arrangement of viewOptions to not arranged
-        set icon size of viewOptions to 80
-        set text size of viewOptions to 12
-        set position of item "trunecord.app" of container window to {150, 120}
-        set position of item "Applications" of container window to {350, 120}
-        set position of item "README.txt" of container window to {250, 280}
-        set background picture of viewOptions to POSIX file "/System/Library/CoreServices/DefaultBackground.jpg"
-        update without registering applications
-        delay 3
-        close
-    end tell
-end tell
-EOF
+# Create ZIP archive
+log_info "Creating ZIP archive..."
+cd "$BUILD_DIR"
+zip -r -q "../$DIST_DIR/$APP_NAME-$VERSION-macOS.zip" "$APP_NAME.app"
+cd ..
+log_success "ZIP created: $DIST_DIR/$APP_NAME-$VERSION-macOS.zip"
 
-# Unmount
-hdiutil detach "${DEVICE}"
+# Calculate checksums
+log_info "Calculating checksums..."
+cd "$DIST_DIR"
+if ls *.dmg *.zip 1> /dev/null 2>&1; then
+    shasum -a 256 "$DMG_NAME.dmg" "$APP_NAME-$VERSION-macOS.zip" > checksums.txt
+else
+    log_warning "No files found for checksum calculation"
+fi
+cd ..
 
-# Convert to compressed DMG
-hdiutil convert "${OUTPUT_DIR}/${DMG_TEMP_NAME}" -format UDZO -o "${OUTPUT_DIR}/${DMG_NAME}"
-rm -f "${OUTPUT_DIR}/${DMG_TEMP_NAME}"
-rm -rf "${DMG_TEMP}"
+# Final summary
+echo ""
+echo "======================================"
+echo "   📦 Packaging Complete!"
+echo "======================================"
+echo ""
+log_success "Application: $APP_BUNDLE"
+log_success "DMG: $DIST_DIR/$DMG_NAME.dmg"
+log_success "ZIP: $DIST_DIR/$APP_NAME-$VERSION-macOS.zip"
+log_success "Checksums: $DIST_DIR/checksums.txt"
+echo ""
+echo "File sizes:"
+du -h "$DIST_DIR"/*.dmg "$DIST_DIR"/*.zip
+echo ""
+echo "To install:"
+echo "  1. Open $DIST_DIR/$DMG_NAME.dmg"
+echo "  2. Drag trunecord to Applications"
+echo ""
+echo "Or distribute the ZIP file for manual installation."
+echo ""
 
-echo "macOS app bundle created: ${OUTPUT_DIR}/${DMG_NAME}"
+# Test the app bundle
+if command -v spctl &> /dev/null && [ "$SIGN_APP" = true ]; then
+    log_info "Testing Gatekeeper acceptance..."
+    spctl -a -t exec -vv "$APP_BUNDLE" 2>&1 || log_warning "Gatekeeper check failed (app may need notarization)"
+fi
+
+log_success "All done! 🎉"

@@ -15,7 +15,7 @@ import (
 	"trunecord/internal/icon"
 )
 
-func setupMenuBarSystray(app *Application) {
+func setupMenuBarSystray(app *App) {
 	// systray.Run is blocking, so we need to run it in the main thread
 	// and run the app logic in a goroutine
 	systray.Run(func() {
@@ -23,7 +23,7 @@ func setupMenuBarSystray(app *Application) {
 	}, onExit)
 }
 
-func onReady(app *Application) {
+func onReady(app *App) {
 	// Set icon
 	systray.SetIcon(icon.Data)
 	systray.SetTooltip("trunecord - Music to Discord")
@@ -61,28 +61,33 @@ func onReady(app *Application) {
 				if app.streamer.IsConnected() {
 					app.streamer.Disconnect()
 				}
-				os.Exit(0)
+				systray.Quit()
+				return
 			}
 		}
 	}()
 	
 	// Update status periodically
 	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+		
 		for {
-			if app.streamer.IsConnected() {
-				mStatus.SetTitle("✓ Connected to Discord")
-				mStreamStatus.Show()
-				if app.wsServer.IsStreaming() {
-					mStreamStatus.SetTitle("♫ Streaming")
+			select {
+			case <-ticker.C:
+				if app.streamer.IsConnected() {
+					mStatus.SetTitle("✓ Connected to Discord")
+					mStreamStatus.Show()
+					if app.wsServer.IsStreaming() {
+						mStreamStatus.SetTitle("♫ Streaming")
+					} else {
+						mStreamStatus.SetTitle("⏸ Not Streaming")
+					}
 				} else {
-					mStreamStatus.SetTitle("⏸ Not Streaming")
+					mStatus.SetTitle("○ Not Connected")
+					mStreamStatus.Hide()
 				}
-			} else {
-				mStatus.SetTitle("○ Not Connected")
-				mStreamStatus.Hide()
 			}
-			// Update every 1 second
-			time.Sleep(1 * time.Second)
 		}
 	}()
 }
@@ -104,7 +109,7 @@ func openBrowser(url string) {
 	}
 }
 
-func runApp(app *Application) {
+func runApp(app *App) {
 	// Run the main application logic in a goroutine
 	go app.run()
 	
@@ -112,7 +117,7 @@ func runApp(app *Application) {
 	setupMenuBarSystray(app)
 }
 
-func setupMenuBar(app *Application) {
+func setupMenuBar(app *App) {
 	// Deprecated: Using setupMenuBarSystray instead
 	setupMenuBarSystray(app)
 }

@@ -31,12 +31,13 @@ resource "aws_lambda_function" "auth_api" {
 
   environment {
     variables = {
-      DISCORD_CLIENT_ID     = var.discord_client_id
-      DISCORD_CLIENT_SECRET = var.discord_client_secret
-      DISCORD_BOT_TOKEN     = var.discord_bot_token
-      REDIRECT_URI          = "https://${aws_api_gateway_rest_api.auth_api.id}.execute-api.${var.aws_region}.amazonaws.com/${var.environment}/api/callback"
-      FRONTEND_URL          = var.frontend_url
-      JWT_SECRET            = var.jwt_secret
+      DISCORD_CLIENT_ID        = var.discord_client_id
+      DISCORD_CLIENT_SECRET    = var.discord_client_secret
+      DISCORD_BOT_TOKEN        = var.discord_bot_token
+      REDIRECT_URI             = "https://${aws_api_gateway_rest_api.auth_api.id}.execute-api.${var.aws_region}.amazonaws.com/${var.environment}/api/callback"
+      FRONTEND_URL             = var.frontend_url
+      JWT_SECRET               = var.jwt_secret
+      ENABLE_BOT_TOKEN_ENDPOINT = var.enable_bot_token_endpoint
     }
   }
 

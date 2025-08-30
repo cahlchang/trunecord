@@ -30,69 +30,63 @@ jobs:
           draft: false
           prerelease: false
 
-  build:
-    name: Build Go binaries
+  build-browser-app:
+    name: Build Browser Application
     needs: release
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            goos: linux
-            goarch: amd64
-            cgo: 1
-          - os: ubuntu-latest
-            goos: linux
-            goarch: arm64
-            cgo: 0
+          # macOS builds (native compilation required)
+          - os: macos-latest
+            platform: darwin
+            arch: amd64
+            name: trunecord-darwin-amd64
+            dmg_name: trunecord-amd64.dmg
+          - os: macos-latest
+            platform: darwin
+            arch: arm64
+            name: trunecord-darwin-arm64
+            dmg_name: trunecord-arm64.dmg
+            
+          # Windows builds  
           - os: windows-latest
-            goos: windows
-            goarch: amd64
-            cgo: 1
-          - os: macos-latest
-            goos: darwin
-            goarch: amd64
-            cgo: 1
-          - os: macos-latest
-            goos: darwin
-            goarch: arm64
-            cgo: 1
+            platform: windows
+            arch: amd64
+            name: trunecord-windows-amd64
+            
+          # Linux builds
+          - os: ubuntu-latest
+            platform: linux
+            arch: amd64
+            name: trunecord-linux-amd64
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Go
+      - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.22'
 
-      - name: Set up Python (for ICO generation)
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
+      # Wails is no longer needed for browser app
 
-      - name: Install Pillow for ICO generation
-        run: pip install Pillow
-
-      - name: Generate ICO file
-        run: |
-          cd go-client
-          chmod +x scripts/create-ico-ci.sh
-          ./scripts/create-ico-ci.sh
-
-      - name: Install dependencies (Ubuntu)
-        if: matrix.goos == 'linux' && matrix.cgo == 1
+      # Platform-specific dependencies
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libopus-dev
+          sudo apt-get install -y libayatana-appindicator3-dev
+          sudo apt-get install -y build-essential libopus-dev
 
-      - name: Install dependencies (macOS)
-        if: matrix.goos == 'darwin' && matrix.cgo == 1
+      - name: Install macOS dependencies  
+        if: runner.os == 'macOS'
         run: |
           brew install opus
 
-      - name: Setup MSYS2 (Windows)
-        if: matrix.goos == 'windows' && matrix.cgo == 1
+      - name: Install Windows dependencies
+        if: runner.os == 'Windows'
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
@@ -101,61 +95,94 @@ jobs:
             mingw-w64-x86_64-opus
             mingw-w64-x86_64-pkg-config
             mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-go
-            zip
 
-      - name: Build binary (Windows with MSYS2)
-        if: matrix.goos == 'windows' && matrix.cgo == 1
-        shell: msys2 {0}
+      # Build the browser application
+      - name: Build Browser App
+        shell: bash
         env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: ${{ matrix.cgo }}
+          CGO_ENABLED: 1
+          GOOS: ${{ matrix.platform }}
+          GOARCH: ${{ matrix.arch }}
         run: |
           cd go-client
-          export PATH="/mingw64/bin:$PATH"
-          export PKG_CONFIG_PATH="/mingw64/lib/pkgconfig"
-          output_name=trunecord-${{ matrix.goos }}-${{ matrix.goarch }}.exe
-          mkdir -p dist
-          go build -o dist/${output_name} ./cmd/
-          
-          # Package with DLLs
-          ./scripts/package-windows.sh dist/${output_name} dist
-
-      - name: Build binary (macOS)
-        if: matrix.goos == 'darwin' && matrix.cgo == 1
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: ${{ matrix.cgo }}
-        run: |
-          cd go-client
-          output_name=trunecord-${{ matrix.goos }}-${{ matrix.goarch }}
-          mkdir -p dist
-          go build -o dist/${output_name} ./cmd/
-          
-          # Package as macOS app
-          ./scripts/package-macos.sh dist/${output_name} dist ${{ matrix.goarch }}
-
-      - name: Build binary (other platforms)
-        if: (matrix.goos != 'windows' && matrix.goos != 'darwin') || matrix.cgo != 1
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: ${{ matrix.cgo }}
-        run: |
-          cd go-client
-          output_name=trunecord-${{ matrix.goos }}-${{ matrix.goarch }}
-          if [ "${{ matrix.cgo }}" = "0" ]; then
-            output_name="${output_name}-nocgo"
+          mkdir -p build/bin
+          if [ "${{ matrix.platform }}" = "windows" ]; then
+            go build -o build/bin/trunecord.exe cmd/main.go
+          else
+            go build -o build/bin/trunecord cmd/main.go
           fi
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            output_name="${output_name}.exe"
-          fi
-          go build -o dist/${output_name} ./cmd/
 
-      - name: Upload Release Asset (Windows Package)
-        if: matrix.goos == 'windows' && matrix.cgo == 1
+      # Package for macOS (create DMG)
+      - name: Create macOS DMG
+        if: runner.os == 'macOS'
+        run: |
+          cd go-client
+          mkdir -p dist
+          
+          # Create DMG with hdiutil
+          DMG_TEMP="dist/dmg-temp"
+          rm -rf "$DMG_TEMP"
+          mkdir -p "$DMG_TEMP"
+          
+          # Copy binary to temp directory
+          cp build/bin/trunecord "$DMG_TEMP/"
+          
+          # Create Applications symlink
+          ln -s /Applications "$DMG_TEMP/Applications"
+          
+          # Create README
+          cat > "$DMG_TEMP/README.txt" << 'EOF'
+          trunecord Installation
+          ======================
+          
+          1. Copy trunecord to the Applications folder
+          2. Launch trunecord from Terminal or double-click
+          3. The app will open in your browser
+          
+          Support: https://github.com/cahlchang/trunecord
+          EOF
+          
+          # Create DMG
+          hdiutil create -volname "trunecord" \
+            -srcfolder "$DMG_TEMP" \
+            -ov \
+            -format UDZO \
+            "dist/${{ matrix.dmg_name }}"
+          
+          # Clean up temp directory
+          rm -rf "$DMG_TEMP"
+
+      # Package for Windows (create ZIP)
+      - name: Package Windows App
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cd go-client
+          New-Item -ItemType Directory -Force -Path dist
+          Compress-Archive -Path "build\bin\trunecord.exe" -DestinationPath "dist\trunecord-windows-amd64.zip"
+
+      # Package for Linux (tar.gz)
+      - name: Package Linux App
+        if: runner.os == 'Linux'
+        run: |
+          cd go-client
+          mkdir -p dist
+          tar -czf dist/trunecord-linux-amd64.tar.gz -C build/bin trunecord
+
+      # Upload Release Assets
+      - name: Upload macOS DMG
+        if: runner.os == 'macOS'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.release.outputs.upload_url }}
+          asset_path: ./go-client/dist/${{ matrix.dmg_name }}
+          asset_name: ${{ matrix.dmg_name }}
+          asset_content_type: application/x-apple-diskimage
+
+      - name: Upload Windows ZIP
+        if: runner.os == 'Windows'
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -165,27 +192,16 @@ jobs:
           asset_name: trunecord-windows-amd64.zip
           asset_content_type: application/zip
 
-      - name: Upload Release Asset (macOS DMG)
-        if: matrix.goos == 'darwin' && matrix.cgo == 1
+      - name: Upload Linux Archive
+        if: runner.os == 'Linux'
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.release.outputs.upload_url }}
-          asset_path: ./go-client/dist/trunecord-darwin-${{ matrix.goarch }}.dmg
-          asset_name: trunecord-darwin-${{ matrix.goarch }}.dmg
-          asset_content_type: application/x-apple-diskimage
-
-      - name: Upload Release Asset (Other Platforms)
-        if: matrix.goos != 'windows' && matrix.goos != 'darwin'
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.release.outputs.upload_url }}
-          asset_path: ./go-client/dist/trunecord-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.cgo == 0 && '-nocgo' || '' }}
-          asset_name: trunecord-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.cgo == 0 && '-nocgo' || '' }}
-          asset_content_type: application/octet-stream
+          asset_path: ./go-client/dist/trunecord-linux-amd64.tar.gz
+          asset_name: trunecord-linux-amd64.tar.gz
+          asset_content_type: application/gzip
 
   build-extension:
     name: Build Chrome Extension

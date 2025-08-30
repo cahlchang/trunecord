@@ -1,0 +1,107 @@
+{
+  "extensionName": {
+    "message": "Trunecord - Discordにストリーミング"
+  },
+  "extensionDescription": {
+    "message": "YouTube Musicの音声をDiscordにストリーミングします"
+  },
+  "clickExtensionIcon": {
+    "message": "ツールバーの拡張機能アイコンをクリックしてストリーミングを開始してください"
+  },
+  "startStreaming": {
+    "message": "ストリーミング開始"
+  },
+  "stopStreaming": {
+    "message": "ストリーミング停止"
+  },
+  "streaming": {
+    "message": "ストリーミング"
+  },
+  "stop": {
+    "message": "停止"
+  },
+  "failedToCommunicate": {
+    "message": "拡張機能との通信に失敗しました"
+  },
+  "failedToStartStreaming": {
+    "message": "ストリーミングの開始に失敗しました"
+  },
+  "failedToConnect": {
+    "message": "接続に失敗しました。ローカルクライアントが実行されていることを確認してください。"
+  },
+  "connectionLost": {
+    "message": "ローカルクライアントとの接続が失われました。ストリーミングを停止しました。"
+  },
+  "waitingModeStop": {
+    "message": "誰かがボイスチャンネルに参加したため、ストリーミングを停止しました（待機モード）"
+  },
+  "normalPlayback": {
+    "message": "通常"
+  },
+  "audioSendingEnabled": {
+    "message": "音声をDiscordに送信します"
+  },
+  "audioSendingDisabled": {
+    "message": "音声は通常通り再生されます"
+  },
+  "popupTitle": {
+    "message": "Music to Discord"
+  },
+  "checkingConnection": {
+    "message": "接続を確認中..."
+  },
+  "localClientConnected": {
+    "message": "ローカルクライアント接続済み"
+  },
+  "localClientNotRunning": {
+    "message": "ローカルクライアントが実行されていません"
+  },
+  "toStartStreaming": {
+    "message": "ストリーミングを開始するには："
+  },
+  "openLocalClientApp": {
+    "message": "ローカルクライアントアプリを開く"
+  },
+  "goToYouTubeMusic": {
+    "message": "YouTube Musicにアクセス"
+  },
+  "clickDiscordButton": {
+    "message": "プレイヤーのDiscordボタンをクリック"
+  },
+  "launchClientManually": {
+    "message": "Music to Discordクライアントアプリケーションを手動で起動してください。"
+  },
+  "startStreamingButton": {
+    "message": "ストリーミング開始"
+  },
+  "stopStreamingButton": {
+    "message": "ストリーミング停止"
+  },
+  "starting": {
+    "message": "開始中..."
+  },
+  "streamingStarted": {
+    "message": "ストリーミングを開始しました！"
+  },
+  "streamingStopped": {
+    "message": "ストリーミングを停止しました"
+  },
+  "failed": {
+    "message": "失敗"
+  },
+  "error": {
+    "message": "エラー"
+  },
+  "streamAlreadyActive": {
+    "message": "ストリームは既にアクティブです。もう一度お試しください。"
+  },
+  "unknownError": {
+    "message": "不明なエラー"
+  },
+  "controlYouTubeMusicStreaming": {
+    "message": "YouTube MusicのDiscordストリーミングを制御"
+  },
+  "pause": {
+    "message": "一時停止"
+  }
+}

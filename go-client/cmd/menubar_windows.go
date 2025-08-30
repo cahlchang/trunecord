@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"time"
 
@@ -15,7 +16,7 @@ import (
 	"trunecord/internal/icon"
 )
 
-func setupMenuBarSystray(app *Application) {
+func setupMenuBarSystray(app *App) {
 	// systray.Run is blocking, so we need to run it in the main thread
 	// and run the app logic in a goroutine
 	systray.Run(func() {
@@ -23,7 +24,7 @@ func setupMenuBarSystray(app *Application) {
 	}, onExit)
 }
 
-func onReady(app *Application) {
+func onReady(app *App) {
 	// Set icon - use ICO format for Windows
 	systray.SetIcon(icon.DataICO)
 	systray.SetTooltip("trunecord - Music to Discord")
@@ -56,14 +57,19 @@ func onReady(app *Application) {
 				openBrowser(fmt.Sprintf("http://localhost:%s", app.config.WebPort))
 			case <-mViewLogs.ClickedCh:
 				// On Windows, open log directory in Explorer
-				logDir := fmt.Sprintf("%s\\AppData\\Local\\trunecord\\logs", os.Getenv("USERPROFILE"))
+				localAppData := os.Getenv("LOCALAPPDATA")
+				if localAppData == "" {
+					localAppData = filepath.Join(os.Getenv("USERPROFILE"), "AppData", "Local")
+				}
+				logDir := filepath.Join(localAppData, "trunecord", "logs")
 				exec.Command("explorer", logDir).Start()
 			case <-mQuit.ClickedCh:
 				log.Println("Quitting trunecord from system tray")
 				if app.streamer.IsConnected() {
 					app.streamer.Disconnect()
 				}
-				os.Exit(0)
+				systray.Quit()
+				return
 			}
 		}
 	}()
@@ -106,7 +112,7 @@ func openBrowser(url string) {
 	}
 }
 
-func runApp(app *Application) {
+func runApp(app *App) {
 	// Run the main application logic in a goroutine
 	go app.run()
 	
@@ -114,7 +120,7 @@ func runApp(app *Application) {
 	setupMenuBarSystray(app)
 }
 
-func setupMenuBar(app *Application) {
+func setupMenuBar(app *App) {
 	// Deprecated: Using setupMenuBarSystray instead
 	setupMenuBarSystray(app)
 }

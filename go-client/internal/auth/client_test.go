@@ -10,7 +10,7 @@ import (
 func TestGetAuthURL(t *testing.T) {
 	client := NewClient("https://test.api.com")
 
-	expected := "https://test.api.com/api/auth"
+	expected := "https://test.api.com/api/auth?redirect_protocol=http"
 	got := client.GetAuthURL()
 
 	if got != expected {
@@ -75,8 +75,8 @@ func TestGetChannels(t *testing.T) {
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Check path
-		if r.URL.Path != "/api/guilds/guild123/channels" {
-			t.Errorf("Expected path /api/guilds/guild123/channels, got %s", r.URL.Path)
+		if r.URL.Path != "/api/guilds/123456789012345678/channels" {
+			t.Errorf("Expected path /api/guilds/123456789012345678/channels, got %s", r.URL.Path)
 		}
 
 		// Check Authorization header
@@ -99,7 +99,7 @@ func TestGetChannels(t *testing.T) {
 
 	client := NewClient(server.URL)
 
-	channels, err := client.GetChannels("test-token", "guild123")
+	channels, err := client.GetChannels("123456789012345678", "test-token")
 	if err != nil {
 		t.Errorf("GetChannels() error = %v", err)
 		return

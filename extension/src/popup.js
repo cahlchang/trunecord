@@ -1,3 +1,13 @@
+// Initialize localization
+function initializeLocalization() {
+  document.getElementById('popup-title').textContent = chrome.i18n.getMessage('popupTitle');
+  document.getElementById('status-text').textContent = chrome.i18n.getMessage('checkingConnection');
+  document.getElementById('to-start-streaming').textContent = chrome.i18n.getMessage('toStartStreaming');
+  document.getElementById('open-client').textContent = chrome.i18n.getMessage('openLocalClientApp');
+  document.getElementById('step-2').textContent = chrome.i18n.getMessage('goToYouTubeMusic');
+  document.getElementById('step-3').textContent = chrome.i18n.getMessage('clickDiscordButton');
+}
+
 // Check connection status
 async function checkConnection() {
   const statusIndicator = document.getElementById('status-indicator');
@@ -9,24 +19,24 @@ async function checkConnection() {
     
     ws.onopen = () => {
       statusIndicator.classList.add('connected');
-      statusText.textContent = 'Local client connected';
+      statusText.textContent = chrome.i18n.getMessage('localClientConnected');
       ws.close();
     };
     
     ws.onerror = () => {
       statusIndicator.classList.remove('connected');
-      statusText.textContent = 'Local client not running';
+      statusText.textContent = chrome.i18n.getMessage('localClientNotRunning');
     };
     
     ws.onclose = () => {
       if (!statusIndicator.classList.contains('connected')) {
         statusIndicator.classList.remove('connected');
-        statusText.textContent = 'Local client not running';
+        statusText.textContent = chrome.i18n.getMessage('localClientNotRunning');
       }
     };
   } catch (error) {
     statusIndicator.classList.remove('connected');
-    statusText.textContent = 'Local client not running';
+    statusText.textContent = chrome.i18n.getMessage('localClientNotRunning');
   }
 }
 
@@ -35,7 +45,7 @@ document.getElementById('open-client').addEventListener('click', (e) => {
   e.preventDefault();
   // Note: Extensions can't directly launch desktop apps
   // This would need to be handled differently in production
-  alert('Please launch the Music to Discord client application manually.');
+  alert(chrome.i18n.getMessage('launchClientManually'));
 });
 
 // Add manual capture button for YouTube Music tabs
@@ -65,10 +75,10 @@ async function addCaptureButton() {
       cursor: pointer;
       font-size: 14px;
     ">
-      ${isStreaming ? 'Stop Streaming' : 'Start Streaming'}
+      ${isStreaming ? chrome.i18n.getMessage('stopStreamingButton') : chrome.i18n.getMessage('startStreamingButton')}
     </button>
     <p style="font-size: 12px; color: #888; margin-top: 8px;">
-      Control YouTube Music streaming to Discord
+      ${chrome.i18n.getMessage('controlYouTubeMusicStreaming')}
     </p>
   `;
   
@@ -78,7 +88,7 @@ async function addCaptureButton() {
     const button = document.getElementById('manual-capture');
     const originalText = button.textContent;
     button.disabled = true;
-    button.textContent = 'Starting...';
+    button.textContent = chrome.i18n.getMessage('starting');
     
     try {
       // Check if already streaming
@@ -88,7 +98,7 @@ async function addCaptureButton() {
         // If already streaming, stop it
         const response = await chrome.runtime.sendMessage({ action: 'stopStream' });
         if (response.success) {
-          button.textContent = 'Streaming stopped';
+          button.textContent = chrome.i18n.getMessage('streamingStopped');
           setTimeout(() => {
             window.close();
           }, 1000);
@@ -103,17 +113,17 @@ async function addCaptureButton() {
       });
       
       if (response.success) {
-        button.textContent = 'Streaming started!';
+        button.textContent = chrome.i18n.getMessage('streamingStarted');
         setTimeout(() => {
           window.close();
         }, 1000);
       } else {
         // Show user-friendly error messages
-        let errorMessage = response.error || 'Unknown error';
+        let errorMessage = response.error || chrome.i18n.getMessage('unknownError');
         if (errorMessage.includes('Cannot capture a tab with an active stream')) {
-          errorMessage = 'Stream already active. Please try again.';
+          errorMessage = chrome.i18n.getMessage('streamAlreadyActive');
         }
-        button.textContent = 'Failed: ' + errorMessage;
+        button.textContent = chrome.i18n.getMessage('failed') + ': ' + errorMessage;
         button.style.backgroundColor = '#f04747';
         setTimeout(() => {
           button.textContent = originalText;
@@ -122,7 +132,7 @@ async function addCaptureButton() {
         }, 3000);
       }
     } catch (error) {
-      button.textContent = 'Error: ' + error.message;
+      button.textContent = chrome.i18n.getMessage('error') + ': ' + error.message;
       setTimeout(() => {
         button.textContent = originalText;
         button.disabled = false;
@@ -131,7 +141,8 @@ async function addCaptureButton() {
   });
 }
 
-// Check connection on popup open
+// Initialize on popup open
+initializeLocalization();
 checkConnection();
 addCaptureButton();
 

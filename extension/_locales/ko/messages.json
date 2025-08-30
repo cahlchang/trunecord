@@ -1,0 +1,35 @@
+{
+  "extensionName": {
+    "message": "Trunecord - Discord로 스트리밍"
+  },
+  "extensionDescription": {
+    "message": "YouTube Music 오디오를 Discord로 스트리밍합니다"
+  },
+  "clickExtensionIcon": {
+    "message": "도구 모음의 확장 프로그램 아이콘을 클릭하여 스트리밍을 시작하세요"
+  },
+  "startStreaming": {
+    "message": "스트리밍 시작"
+  },
+  "stopStreaming": {
+    "message": "스트리밍 중지"
+  },
+  "streaming": {
+    "message": "스트리밍"
+  },
+  "stop": {
+    "message": "중지"
+  },
+  "failedToCommunicate": {
+    "message": "확장 프로그램과 통신하지 못했습니다"
+  },
+  "failedToStartStreaming": {
+    "message": "스트리밍을 시작하지 못했습니다"
+  },
+  "failedToConnect": {
+    "message": "연결에 실패했습니다. 로컬 클라이언트가 실행 중인지 확인하세요."
+  },
+  "connectionLost": {
+    "message": "로컬 클라이언트와의 연결이 끊어졌습니다. 스트리밍이 중지되었습니다."
+  }
+}
