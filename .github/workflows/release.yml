@@ -277,6 +277,9 @@ jobs:
           </plist>
           EOF
           
+          # Remove quarantine attribute from app bundle
+          xattr -cr "$APP_BUNDLE" || true
+          
           # Create DMG with app bundle
           DMG_TEMP="dist/dmg-temp"
           rm -rf "$DMG_TEMP"
