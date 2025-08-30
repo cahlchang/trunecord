@@ -8,18 +8,39 @@ const crypto = require('crypto');
 
 const app = express();
 
-// CORS configuration - avoid wildcard with credentials:true for security
+// CORS configuration - allow localhost for development
 const corsOptions = {
-  credentials: true
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, Postman, or same-origin)
+    if (!origin) return callback(null, true);
+    
+    // Allow localhost for development
+    if (origin.startsWith('http://localhost:') || 
+        origin.startsWith('https://localhost:') ||
+        origin.startsWith('http://127.0.0.1:') ||
+        origin.startsWith('https://127.0.0.1:')) {
+      return callback(null, true);
+    }
+    
+    // Allow configured frontend URL
+    if (process.env.FRONTEND_URL && 
+        (origin === process.env.FRONTEND_URL || 
+         process.env.FRONTEND_URL === '*')) {
+      return callback(null, true);
+    }
+    
+    // Allow trunecord protocol (for desktop app)
+    if (origin.startsWith('trunecord://')) {
+      return callback(null, true);
+    }
+    
+    // Reject other origins
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 };
-
-if (process.env.FRONTEND_URL && process.env.FRONTEND_URL !== '*') {
-  corsOptions.origin = process.env.FRONTEND_URL;
-} else {
-  // If no specific frontend URL is set, allow any origin but disable credentials
-  corsOptions.origin = '*';
-  corsOptions.credentials = false;
-}
 
 app.use(cors(corsOptions));
 
