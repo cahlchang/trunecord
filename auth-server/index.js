@@ -33,8 +33,9 @@ const generalApiRateLimit = rateLimit({
 });
 
 // Apply rate limiting to specific routes
-app.use('/api/voice/', voiceRateLimit);
-app.use('/api/', generalApiRateLimit);
+// Note: More specific routes must come before general routes
+app.use('/api/voice/', voiceRateLimit); // 100 req/min for voice endpoints
+app.use('/api/', generalApiRateLimit);  // 200 req/min for general API
 
 // Helper functions
 const generateState = () => {
@@ -164,11 +165,13 @@ app.get('/api/callback', async (req, res) => {
       botGuilds.some(botGuild => botGuild.id === userGuild.id)
     );
     
-    // Create JWT token
+    // Create JWT token with guild information
     const token = jwt.sign({
       userId: userResponse.data.id,
       username: userResponse.data.username,
-      discriminator: userResponse.data.discriminator
+      discriminator: userResponse.data.discriminator,
+      // Store the list of guild IDs where both user and bot are present
+      guildIds: commonGuilds.map(g => g.id)
     }, process.env.JWT_SECRET, { expiresIn: '7d' });
     
     // Check if we should use HTTP redirect (for local development)
@@ -365,34 +368,40 @@ app.get('/api/verify', (req, res) => {
 });
 
 
-// Get guilds list (protected endpoint)
+// Get guilds list (protected endpoint - returns user's authorized guilds only)
 app.get('/api/guilds', async (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
   
+  // Security: JWT token is required to prevent information leakage
   if (!token) {
-    // No token provided - check if this is a desktop app request
-    console.log('[GUILDS] No auth token provided');
-    
-    // For desktop app, we don't need user token since bot token is on server
-    try {
-      const botGuilds = await getBotGuilds();
-      res.json(botGuilds);
-    } catch (error) {
-      console.error('[GUILDS] Error getting bot guilds:', error);
-      res.status(500).json({ error: 'Failed to get guilds' });
-    }
-    return;
+    return res.status(401).json({ error: 'No token provided' });
   }
   
   try {
-    // Verify JWT token if provided
-    jwt.verify(token, process.env.JWT_SECRET);
+    // Verify JWT token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
     // Get bot's guilds
     const botGuilds = await getBotGuilds();
-    res.json(botGuilds);
+    
+    // Filter to only return guilds the user has access to
+    // Use the guild IDs stored in the JWT token (set during OAuth callback)
+    let authorizedGuilds = botGuilds;
+    
+    if (decoded.guildIds && Array.isArray(decoded.guildIds)) {
+      // Return only guilds that are both in bot's guilds and user's authorized guilds
+      authorizedGuilds = botGuilds.filter(guild => 
+        decoded.guildIds.includes(guild.id)
+      );
+    } else {
+      // Legacy tokens without guildIds - return empty for security
+      console.warn(`User ${decoded.userId} has legacy token without guild information`);
+      return res.json([]);
+    }
+    
+    res.json(authorizedGuilds);
   } catch (error) {
-    if (error.name === 'JsonWebTokenError') {
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError' || error.name === 'NotBeforeError') {
       res.status(401).json({ error: 'Invalid token' });
     } else {
       res.status(500).json({ error: 'Failed to get guilds' });
@@ -432,7 +441,7 @@ app.get('/api/guilds/:guildId/channels', async (req, res) => {
     
     res.json({ channels: voiceChannels });
   } catch (error) {
-    if (error.name === 'JsonWebTokenError') {
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError' || error.name === 'NotBeforeError') {
       res.status(401).json({ error: 'Invalid token' });
     } else {
       res.status(500).json({ error: 'Failed to get channels' });
@@ -474,7 +483,7 @@ app.get('/api/bot-token', async (req, res) => {
       deprecated: 'This endpoint is deprecated. Please use voice proxy endpoints instead.'
     });
   } catch (error) {
-    if (error.name === 'JsonWebTokenError') {
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError' || error.name === 'NotBeforeError') {
       res.status(401).json({ error: 'Invalid token' });
     } else {
       res.status(500).json({ error: 'Failed to get bot token' });
@@ -514,7 +523,7 @@ app.post('/api/voice/connect', async (req, res) => {
     });
   } catch (error) {
     console.error('Voice connect error:', error);
-    if (error.name === 'JsonWebTokenError') {
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError' || error.name === 'NotBeforeError') {
       res.status(401).json({ error: 'Invalid token' });
     } else {
       res.status(500).json({ error: 'Failed to connect to voice channel' });
@@ -545,7 +554,7 @@ app.post('/api/voice/disconnect', async (req, res) => {
     });
   } catch (error) {
     console.error('Voice disconnect error:', error);
-    if (error.name === 'JsonWebTokenError') {
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError' || error.name === 'NotBeforeError') {
       res.status(401).json({ error: 'Invalid token' });
     } else {
       res.status(500).json({ error: 'Failed to disconnect from voice channel' });
@@ -572,5 +581,6 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
 
-// Export handler for Lambda
+// Export handler for Lambda and app for testing
 module.exports.handler = serverless(app);
+module.exports.app = app;
