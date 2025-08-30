@@ -241,6 +241,11 @@ jobs:
             cp "assets/AppIcon.icns" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
           fi
           
+          # Ad-hoc sign the app to prevent "damaged" error
+          # This creates a minimal signature that satisfies Gatekeeper
+          codesign --force --deep --sign - "$APP_BUNDLE"
+          echo "✅ Applied ad-hoc signature to app bundle"
+          
           # Create Info.plist
           cat > "$APP_BUNDLE/Contents/Info.plist" << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
@@ -277,9 +282,6 @@ jobs:
           </plist>
           EOF
           
-          # Remove quarantine attribute from app bundle
-          xattr -cr "$APP_BUNDLE" || true
-          
           # Create DMG with app bundle
           DMG_TEMP="dist/dmg-temp"
           rm -rf "$DMG_TEMP"
@@ -312,6 +314,10 @@ jobs:
           
           # Clean up temp directory
           rm -rf "$DMG_TEMP"
+          
+          # Remove quarantine attributes from DMG
+          xattr -cr "dist/${{ matrix.dmg_name }}" || true
+          echo "✅ Removed quarantine attributes from DMG"
 
       # Package for Windows (create ZIP)
       - name: Package Windows App
