@@ -1,15 +1,33 @@
-# Terraform files
+# CRITICAL SECURITY: Terraform state files contain secrets
 *.tfstate
 *.tfstate.*
+terraform.tfstate
+terraform.tfstate.backup
+*.tfstate.backup
+.terraform.tfstate.lock.info
+
+# Terraform directories and lock files
 .terraform/
 .terraform.lock.hcl
 
-# Variable files with secrets
+# Variable files with secrets - NEVER commit these
 terraform.tfvars
 *.auto.tfvars
+*.tfvars
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
 
-# Temporary files
+# Terraform plan files
+*.tfplan
+tfplan
+plan.out
+
+# Temporary and build files
 *.zip
+lambda_function.zip
+lambda_function_new.zip
 .DS_Store
 
 # IDE files
