@@ -29,8 +29,8 @@ const serviceConfigs = {
     playPauseSelector: '[data-testid="control-button-playpause"], button[aria-label*="Play"], button[aria-label*="Pause"]',
     insertPosition: 'afterend',
     isPlayingCheck: (button) => {
-      const ariaLabel = button.getAttribute('aria-label');
-      return ariaLabel && ariaLabel.toLowerCase().includes('pause');
+      const ariaLabel = button.getAttribute('aria-label') || '';
+      return ariaLabel.toLowerCase().includes('pause') || ariaLabel.includes('一時停止');
     }
   },
   appleMusic: {
@@ -72,7 +72,7 @@ function detectMusicService() {
     return 'spotify';
   } else if (hostname.includes('music.apple.com')) {
     return 'appleMusic';
-  } else if (hostname.includes('music.amazon.com') || hostname.includes('music.amazon.co.jp')) {
+  } else if (hostname.includes('music.amazon.')) {
     return 'amazonMusic';
   }
   
@@ -110,7 +110,9 @@ function createDiscordButton() {
   `;
   
   button.innerHTML = `${discordIcon}${stopIcon}<span>${chrome.i18n.getMessage('disconnected') || 'Disconnected'}</span>`;
-  button.title = chrome.i18n.getMessage('clickExtensionIcon') || 'Chrome拡張アイコンをクリックして開始';
+  button.title = chrome.i18n.getMessage('clickExtensionIcon') || 'Click the extension icon to start';
+  button.setAttribute('aria-pressed', 'false');
+  button.setAttribute('aria-label', chrome.i18n.getMessage('disconnected') || 'Disconnected');
   
   button.addEventListener('click', toggleStream);
   
@@ -123,7 +125,7 @@ async function toggleStream() {
   
   // If not streaming, show message to use extension
   if (!isStreaming) {
-    showNotification('⚠️ ' + (chrome.i18n.getMessage('clickExtensionIcon') || 'Chrome拡張アイコンをクリックして開始してください'), true);
+    showNotification('⚠️ ' + (chrome.i18n.getMessage('clickExtensionIcon') || 'Click the extension icon to start'), true);
     return;
   }
   
@@ -140,12 +142,12 @@ async function toggleStream() {
       if (response && response.success) {
         isStreaming = false;
         updateButtonState();
-        showNotification(chrome.i18n.getMessage('streamingStopped') || 'ストリーミングを停止しました');
+        showNotification(chrome.i18n.getMessage('streamingStopped') || 'Streaming stopped');
       }
       discordButton.disabled = false;
     });
   } catch (error) {
-    showNotification(chrome.i18n.getMessage('failedToConnect') || '接続に失敗しました');
+    showNotification(chrome.i18n.getMessage('failedToConnect') || 'Failed to connect');
     discordButton.disabled = false;
   }
 }
@@ -166,19 +168,25 @@ function updateButtonState() {
   const stopIcon = discordButton.querySelector('.stop-icon');
   
   if (isStreaming) {
-    // Streaming state - show stop icon and "接続中" text
+    // Streaming state - show stop icon and connected text
     discordButton.classList.add('streaming');
     discordButton.classList.remove('disconnected');
-    span.textContent = chrome.i18n.getMessage('connected') || '接続中';
-    discordButton.title = chrome.i18n.getMessage('clickToStop') || 'クリックして停止';
+    const connectedLabel = chrome.i18n.getMessage('connected') || 'Connected';
+    span.textContent = connectedLabel;
+    discordButton.title = chrome.i18n.getMessage('clickToStop') || 'Click to stop';
+    discordButton.setAttribute('aria-pressed', 'true');
+    discordButton.setAttribute('aria-label', connectedLabel);
     
     // CSS (.streaming) handles icon switching automatically
   } else {
-    // Not streaming - show Discord icon and "未接続" text
+    // Not streaming - show Discord icon and disconnected text
     discordButton.classList.remove('streaming');
     discordButton.classList.add('disconnected');
-    span.textContent = chrome.i18n.getMessage('disconnected') || '未接続';
-    discordButton.title = chrome.i18n.getMessage('clickExtensionIcon') || 'Chrome拡張アイコンをクリックして開始';
+    const disconnectedLabel = chrome.i18n.getMessage('disconnected') || 'Disconnected';
+    span.textContent = disconnectedLabel;
+    discordButton.title = chrome.i18n.getMessage('clickExtensionIcon') || 'Click the extension icon to start';
+    discordButton.setAttribute('aria-pressed', 'false');
+    discordButton.setAttribute('aria-label', disconnectedLabel);
     
     // CSS (.streaming removal) handles icon switching automatically
   }
@@ -189,6 +197,8 @@ function showNotification(message, isWarning = false) {
   const notification = document.createElement('div');
   notification.className = 'discord-notification' + (isWarning ? ' warning' : '');
   notification.textContent = message;
+  notification.setAttribute('role', 'status');
+  notification.setAttribute('aria-live', isWarning ? 'assertive' : 'polite');
   
   // For Apple Music, show notification at the top
   if (musicService === 'appleMusic') {
@@ -394,6 +404,13 @@ function insertButton() {
         };
         
         window.addEventListener('resize', updatePosition);
+        window.addEventListener('scroll', updatePosition, { passive: true });
+        
+        // Cleanup on page leave
+        window.addEventListener('pagehide', () => {
+          window.removeEventListener('resize', updatePosition);
+          window.removeEventListener('scroll', updatePosition);
+        }, { once: true });
         
         checkStreamingStatus();
         observeMusicPlayback();
@@ -584,6 +601,10 @@ observer.observe(document.body, {
   childList: true,
   subtree: true
 });
+
+// Cleanup observer on page leave
+window.addEventListener('pagehide', () => observer.disconnect(), { once: true });
+window.addEventListener('beforeunload', () => observer.disconnect(), { once: true });
 
 // Clean up observer on page unload
 window.addEventListener('pagehide', () => observer.disconnect(), { once: true });
