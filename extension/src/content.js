@@ -104,7 +104,7 @@ function createDiscordButton() {
   
   // Stop icon SVG (will be shown when streaming)
   const stopIcon = `
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="stop-icon" style="display:none;">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="stop-icon">
       <rect x="5" y="5" width="14" height="14" rx="2" ry="2"/>
     </svg>
   `;
@@ -177,7 +177,9 @@ function updateButtonState() {
     discordButton.setAttribute('aria-pressed', 'true');
     discordButton.setAttribute('aria-label', connectedLabel);
     
-    // CSS (.streaming) handles icon switching automatically
+    // Switch icons
+    if (discordIcon) discordIcon.style.display = 'none';
+    if (stopIcon) stopIcon.style.display = 'inline-block';
   } else {
     // Not streaming - show Discord icon and disconnected text
     discordButton.classList.remove('streaming');
@@ -188,7 +190,9 @@ function updateButtonState() {
     discordButton.setAttribute('aria-pressed', 'false');
     discordButton.setAttribute('aria-label', disconnectedLabel);
     
-    // CSS (.streaming removal) handles icon switching automatically
+    // Switch icons
+    if (discordIcon) discordIcon.style.display = 'inline-block';
+    if (stopIcon) stopIcon.style.display = 'none';
   }
 }
 
