@@ -231,14 +231,31 @@ func (o *Opener) mapBundleIDToAppName(bundleID string) string {
 	}
 }
 
-// sanitizeURLForLog removes sensitive query parameters and fragments from URL for logging
+// sanitizeURLForLog removes sensitive components from a URL before logging
 func sanitizeURLForLog(u string) string {
 	parsed, err := url.Parse(u)
 	if err != nil {
 		return "<invalid-url>"
 	}
-	// Remove query parameters and fragment that may contain sensitive data
+	
+	// Remove components that often carry secrets
 	parsed.RawQuery = ""
 	parsed.Fragment = ""
-	return parsed.String()
+	parsed.User = nil // Remove userinfo (username:password)
+	
+	scheme := strings.ToLower(parsed.Scheme)
+	if scheme != "http" && scheme != "https" {
+		// Avoid logging opaque data (e.g., data:, javascript:, mailto:)
+		if scheme == "" {
+			return "<relative-url>"
+		}
+		return scheme + ":<redacted>"
+	}
+	
+	// Keep only scheme://host[:port] and path
+	return (&url.URL{
+		Scheme: parsed.Scheme,
+		Host:   parsed.Host,
+		Path:   parsed.Path,
+	}).String()
 }
