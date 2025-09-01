@@ -109,7 +109,7 @@ function createDiscordButton() {
     </svg>
   `;
   
-  button.innerHTML = discordIcon + stopIcon + `<span>未接続</span>`;
+  button.innerHTML = `${discordIcon}${stopIcon}<span>${chrome.i18n.getMessage('disconnected') || 'Disconnected'}</span>`;
   button.title = chrome.i18n.getMessage('clickExtensionIcon') || 'Chrome拡張アイコンをクリックして開始';
   
   button.addEventListener('click', toggleStream);
@@ -172,9 +172,7 @@ function updateButtonState() {
     span.textContent = chrome.i18n.getMessage('connected') || '接続中';
     discordButton.title = chrome.i18n.getMessage('clickToStop') || 'クリックして停止';
     
-    // Switch icons
-    if (discordIcon) discordIcon.style.display = 'none';
-    if (stopIcon) stopIcon.style.display = 'inline-block';
+    // CSS (.streaming) handles icon switching automatically
   } else {
     // Not streaming - show Discord icon and "未接続" text
     discordButton.classList.remove('streaming');
@@ -182,9 +180,7 @@ function updateButtonState() {
     span.textContent = chrome.i18n.getMessage('disconnected') || '未接続';
     discordButton.title = chrome.i18n.getMessage('clickExtensionIcon') || 'Chrome拡張アイコンをクリックして開始';
     
-    // Switch icons
-    if (discordIcon) discordIcon.style.display = 'inline-block';
-    if (stopIcon) stopIcon.style.display = 'none';
+    // CSS (.streaming removal) handles icon switching automatically
   }
 }
 
@@ -234,7 +230,7 @@ function insertButton() {
   let insertLocation = null;
   
   switch (musicService) {
-    case 'spotify':
+    case 'spotify': {
       // Spotify: Find the player controls container
       playerBar = document.querySelector('[data-testid="player-controls"]') || 
                  document.querySelector('.player-controls') ||
@@ -255,8 +251,9 @@ function insertButton() {
         }
       }
       break;
-      
-    case 'amazonMusic':
+    }
+
+    case 'amazonMusic': {
       // Amazon Music: Find the best location in the player bar
       // Strategy 1: Look for the volume control area (right side of player)
       const volumeControl = document.querySelector('[aria-label*="ボリューム"], [aria-label*="Volume"], [class*="volume"], #volumeSlider');
@@ -304,7 +301,7 @@ function insertButton() {
       discordButton.style.cssText = `
         position: fixed !important;
         bottom: 20px !important;
-        right: 300px !important;
+        right: 20px !important;
         z-index: 9999 !important;
         height: 40px !important;
         padding: 0 20px !important;
@@ -321,8 +318,9 @@ function insertButton() {
       checkStreamingStatus();
       observeMusicPlayback();
       break;
-      
-    case 'appleMusic':
+    }
+
+    case 'appleMusic': {
       // Apple Music: Position button below the play button in control bar
       // Find the media control buttons group (previous, play, next)
       const findPlaybackControls = () => {
@@ -367,7 +365,7 @@ function insertButton() {
         // Create a floating button below the play button
         discordButton.style.cssText = `
           position: fixed !important;
-          left: ${playRect.left + (playRect.width - 100) / 2}px !important;
+          left: ${playRect.left + (playRect.width / 2)}px !important;
           top: ${playRect.bottom + 8}px !important;
           z-index: 10000 !important;
           height: 28px !important;
@@ -380,6 +378,7 @@ function insertButton() {
           border-radius: 14px !important;
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
           backdrop-filter: blur(10px) !important;
+          transform: translateX(-50%) !important;
         `;
         document.body.appendChild(discordButton);
         console.log('trunecord: Button positioned below play control button');
@@ -389,7 +388,7 @@ function insertButton() {
           const updatedPlayButton = findPlaybackControls();
           if (updatedPlayButton) {
             const rect = updatedPlayButton.getBoundingClientRect();
-            discordButton.style.left = `${rect.left + (rect.width - 100) / 2}px`;
+            discordButton.style.left = `${rect.left + (rect.width / 2)}px`;
             discordButton.style.top = `${rect.bottom + 8}px`;
           }
         };
@@ -423,8 +422,9 @@ function insertButton() {
       checkStreamingStatus();
       observeMusicPlayback();
       break;
-      
-    case 'youtube':
+    }
+
+    case 'youtube': {
       // YouTube Music: Original implementation
       playerBar = document.querySelector(config.playerSelector);
       if (playerBar) {
@@ -445,6 +445,7 @@ function insertButton() {
         return;
       }
       break;
+    }
   }
   
   // Insert the button if we found a location
@@ -494,7 +495,7 @@ function applyServiceSpecificStyling() {
 async function checkStreamingStatus() {
   try {
     const response = await chrome.runtime.sendMessage({ action: 'getStreamStatus' });
-    isStreaming = response.isStreaming;
+    isStreaming = !!(response && response.isStreaming === true);
     updateButtonState();
   } catch (error) {
     // Failed to check streaming status
@@ -583,6 +584,10 @@ observer.observe(document.body, {
   childList: true,
   subtree: true
 });
+
+// Clean up observer on page unload
+window.addEventListener('pagehide', () => observer.disconnect(), { once: true });
+window.addEventListener('beforeunload', () => observer.disconnect(), { once: true });
 
 // Observe music playback events (currently not used, but kept for future features)
 function observeMusicPlayback() {
