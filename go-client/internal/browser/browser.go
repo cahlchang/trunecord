@@ -3,6 +3,7 @@ package browser
 import (
 	"fmt"
 	"log"
+	"net/url"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -19,18 +20,18 @@ func NewOpener() *Opener {
 }
 
 // Open opens a URL in the default browser
-func (o *Opener) Open(url string) error {
-	log.Printf("Attempting to open browser at %s", url)
+func (o *Opener) Open(urlStr string) error {
+	log.Printf("Attempting to open browser at %s", sanitizeURLForLog(urlStr))
 
 	switch runtime.GOOS {
 	case "linux":
-		return exec.Command(constants.LinuxOpenCommand, url).Start()
+		return exec.Command(constants.LinuxOpenCommand, urlStr).Start()
 	case "windows":
-		return exec.Command(constants.WindowsOpenCommand, constants.WindowsOpenArgs, url).Start()
+		return exec.Command(constants.WindowsOpenCommand, constants.WindowsOpenArgs, urlStr).Start()
 	case "darwin":
-		return o.openOnMacOS(url)
+		return o.openOnMacOS(urlStr)
 	default:
-		log.Printf("Cannot auto-open browser on this platform. Please visit: %s", url)
+		log.Printf("Cannot auto-open browser on this platform. Please visit: %s", sanitizeURLForLog(urlStr))
 		return nil
 	}
 }
@@ -228,4 +229,16 @@ func (o *Opener) mapBundleIDToAppName(bundleID string) string {
 	default:
 		return constants.Safari
 	}
+}
+
+// sanitizeURLForLog removes sensitive query parameters and fragments from URL for logging
+func sanitizeURLForLog(u string) string {
+	parsed, err := url.Parse(u)
+	if err != nil {
+		return "<invalid-url>"
+	}
+	// Remove query parameters and fragment that may contain sensitive data
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+	return parsed.String()
 }
