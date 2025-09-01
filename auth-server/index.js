@@ -206,7 +206,8 @@ app.get('/api/callback', async (req, res) => {
     httpUrl.searchParams.append('token', token);
     httpUrl.searchParams.append('guilds', JSON.stringify(commonGuilds));
     
-    console.log('[CALLBACK] Redirecting to:', httpUrl.toString());
+    // Do not log sensitive query values
+    console.log('[CALLBACK] Redirecting to http://localhost:48766/auth/callback (query redacted)');
     
     // Direct redirect to localhost
     res.redirect(httpUrl.toString());
