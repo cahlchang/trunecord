@@ -35,6 +35,7 @@ type DiscordStreamer interface {
 
 type WebSocketServer interface {
 	IsStreaming() bool
+	IsConnected() bool
 }
 
 type PageData struct {
@@ -272,23 +273,31 @@ func (s *Server) handleDisconnect(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
-	// Check if Chrome extension is actually streaming audio
+	// Check WebSocket connection from Chrome extension
+	chromeConnected := false
 	chromeStreaming := false
 	if s.wsServer != nil {
+		chromeConnected = s.wsServer.IsConnected()
 		chromeStreaming = s.wsServer.IsStreaming()
 	}
 
+	// Check Discord connection
+	discordConnected := s.streamer.IsConnected()
+
 	status := map[string]interface{}{
-		"connected":     s.streamer.IsConnected(),
-		"streaming":     chromeStreaming && s.streamer.IsConnected(), // Both must be true
-		"authenticated": s.tokenData != nil,
+		"connected":        discordConnected,                           // Discord voice connection
+		"chromeConnected":  chromeConnected,                           // Chrome extension WebSocket connection
+		"streaming":        chromeStreaming && discordConnected,       // Both must be true for actual streaming
+		"authenticated":    s.tokenData != nil,
+		"discordConnected": discordConnected,                          // Explicit Discord status
+		"wsConnected":      chromeConnected,                           // Explicit WebSocket status
 	}
 
 	if s.tokenData != nil {
 		status["guilds"] = s.tokenData.Guilds
 	}
 
-	if s.streamer.IsConnected() {
+	if discordConnected {
 		status["currentGuild"] = s.streamer.GetGuildID()
 		status["currentChannel"] = s.streamer.GetChannelID()
 	}

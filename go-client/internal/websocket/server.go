@@ -204,6 +204,12 @@ func (s *Server) IsStreaming() bool {
 	return s.isStreaming
 }
 
+func (s *Server) IsConnected() bool {
+	s.clientMutex.RLock()
+	defer s.clientMutex.RUnlock()
+	return len(s.clients) > 0
+}
+
 func (s *Server) resetStreamingTimeout() {
 	s.timeoutTimerLock.Lock()
 	defer s.timeoutTimerLock.Unlock()

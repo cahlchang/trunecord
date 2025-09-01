@@ -201,13 +201,19 @@ const indexTemplate = `<!DOCTYPE html>
                         </div>
                         <div class="card-body">
                             <div class="row mb-4">
-                                <div class="col-6 text-center">
-                                    <small class="text-secondary d-block mb-1">Connection</small>
-                                    <span id="connection-status" class="status-indicator disconnected">
+                                <div class="col-4 text-center">
+                                    <small class="text-secondary d-block mb-1">Discord</small>
+                                    <span id="discord-status" class="status-indicator disconnected">
                                         <i class="fas fa-circle fa-xs"></i>Disconnected
                                     </span>
                                 </div>
-                                <div class="col-6 text-center">
+                                <div class="col-4 text-center">
+                                    <small class="text-secondary d-block mb-1">Extension</small>
+                                    <span id="extension-status" class="status-indicator disconnected">
+                                        <i class="fas fa-circle fa-xs"></i>Disconnected
+                                    </span>
+                                </div>
+                                <div class="col-4 text-center">
                                     <small class="text-secondary d-block mb-1">Streaming</small>
                                     <span id="streaming-status" class="status-indicator disconnected">
                                         <i class="fas fa-circle fa-xs"></i>Stopped
@@ -279,7 +285,6 @@ const indexTemplate = `<!DOCTYPE html>
             const channelSelect = document.getElementById('channel-select');
             const connectBtn = document.getElementById('connect-btn');
             const disconnectBtn = document.getElementById('disconnect-btn');
-            const connectionStatus = document.getElementById('connection-status');
             const streamingStatus = document.getElementById('streaming-status');
             
             if (guildSelect) {
@@ -340,7 +345,7 @@ const indexTemplate = `<!DOCTYPE html>
                         
                         const data = await response.json();
                         if (data.success) {
-                            updateConnectionStatus(true);
+                            updateDiscordStatus(true);
                             connectBtn.disabled = true;
                             disconnectBtn.disabled = false;
                             guildSelect.disabled = true;
@@ -366,7 +371,7 @@ const indexTemplate = `<!DOCTYPE html>
                         const response = await fetch('/api/disconnect', { method: 'POST' });
                         const data = await response.json();
                         if (data.success) {
-                            updateConnectionStatus(false);
+                            updateDiscordStatus(false);
                             connectBtn.disabled = false;
                             disconnectBtn.disabled = true;
                             guildSelect.disabled = false;
@@ -381,14 +386,28 @@ const indexTemplate = `<!DOCTYPE html>
                 });
             }
             
-            function updateConnectionStatus(connected) {
-                if (connectionStatus) {
+            function updateDiscordStatus(connected) {
+                const discordStatus = document.getElementById('discord-status');
+                if (discordStatus) {
                     if (connected) {
-                        connectionStatus.className = 'status-indicator connected';
-                        connectionStatus.innerHTML = '<i class="fas fa-circle fa-xs"></i>Connected';
+                        discordStatus.className = 'status-indicator connected';
+                        discordStatus.innerHTML = '<i class="fas fa-circle fa-xs"></i>Connected';
                     } else {
-                        connectionStatus.className = 'status-indicator disconnected';
-                        connectionStatus.innerHTML = '<i class="fas fa-circle fa-xs"></i>Disconnected';
+                        discordStatus.className = 'status-indicator disconnected';
+                        discordStatus.innerHTML = '<i class="fas fa-circle fa-xs"></i>Disconnected';
+                    }
+                }
+            }
+            
+            function updateExtensionStatus(connected) {
+                const extensionStatus = document.getElementById('extension-status');
+                if (extensionStatus) {
+                    if (connected) {
+                        extensionStatus.className = 'status-indicator connected';
+                        extensionStatus.innerHTML = '<i class="fas fa-circle fa-xs"></i>Connected';
+                    } else {
+                        extensionStatus.className = 'status-indicator disconnected';
+                        extensionStatus.innerHTML = '<i class="fas fa-circle fa-xs"></i>Disconnected';
                     }
                 }
             }
@@ -410,10 +429,14 @@ const indexTemplate = `<!DOCTYPE html>
                 try {
                     const response = await fetch('/api/status');
                     const status = await response.json();
-                    updateConnectionStatus(status.connected);
+                    
+                    // Update all status indicators
+                    updateDiscordStatus(status.discordConnected);
+                    updateExtensionStatus(status.wsConnected || status.chromeConnected);
                     updateStreamingStatus(status.streaming);
                     
-                    if (status.connected) {
+                    // Control button states based on Discord connection
+                    if (status.discordConnected) {
                         connectBtn.disabled = true;
                         disconnectBtn.disabled = false;
                         guildSelect.disabled = true;
