@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"trunecord/internal/auth"
-	"trunecord/internal/browser"
 	"trunecord/internal/config"
 	"trunecord/internal/constants"
 	"trunecord/internal/discord"
@@ -27,7 +26,6 @@ type App struct {
 	streamer   *discord.Streamer
 	wsServer   *websocket.Server
 	authClient *auth.Client
-	browserOpener *browser.Opener
 	userToken  string
 }
 
@@ -41,7 +39,7 @@ func (a *App) startServers() {
 	a.startWebSocketServer()
 	a.startAudioStreaming()
 	a.startWebServer()
-	a.scheduleBrowserOpen()
+	// Browser auto-open is handled by web.Server
 }
 
 func (a *App) startWebSocketServer() {
@@ -84,13 +82,6 @@ func (a *App) startWebServer() {
 	}()
 }
 
-func (a *App) scheduleBrowserOpen() {
-	// Open browser after a short delay to ensure server is ready
-	go func() {
-		time.Sleep(constants.BrowserOpenDelay)
-		a.openBrowser()
-	}()
-}
 
 func (a *App) printStatus() {
 	// Print status
@@ -142,16 +133,13 @@ func main() {
 
 	// Initialize app temporarily for checkExistingInstance
 	tempApp := &App{
-		config:        cfg,
-		browserOpener: browser.NewOpener(),
+		config: cfg,
 	}
 	
 	// Check for existing instance
 	if tempApp.checkExistingInstance() {
 		log.Printf("%s is already running", constants.ApplicationName)
 		showNotification(constants.AppDisplayName, "Application is already running")
-		// Bring existing browser window to front
-		tempApp.bringExistingBrowserToFront()
 		os.Exit(0)
 	}
 	
@@ -164,11 +152,10 @@ func main() {
 
 	// Initialize app (config already loaded)
 	app := &App{
-		config:        cfg,
-		authClient:    auth.NewClient(cfg.AuthAPIURL),
-		streamer:      discord.NewStreamer(),
-		wsServer:      websocket.NewServer(),
-		browserOpener: browser.NewOpener(),
+		config:     cfg,
+		authClient: auth.NewClient(cfg.AuthAPIURL),
+		streamer:   discord.NewStreamer(),
+		wsServer:   websocket.NewServer(),
 	}
 
 	// Run the application
@@ -220,24 +207,3 @@ func showNotification(title, message string) {
 }
 
 
-func (a *App) openBrowser() {
-	url := fmt.Sprintf("http://%s:%s", constants.LocalhostAddress, a.config.WebPort)
-	
-	err := a.browserOpener.Open(url)
-	if err != nil {
-		log.Printf("Failed to open browser: %v", err)
-		log.Printf("Please manually open: %s", url)
-		log.Printf("The app is running and waiting for connections")
-	} else {
-		log.Printf("Browser opened successfully")
-	}
-}
-
-func (a *App) bringExistingBrowserToFront() {
-	url := fmt.Sprintf("http://%s:%s", constants.LocalhostAddress, a.config.WebPort)
-	
-	err := a.browserOpener.BringToFront(url)
-	if err != nil {
-		log.Printf("Failed to bring browser to front: %v", err)
-	}
-}

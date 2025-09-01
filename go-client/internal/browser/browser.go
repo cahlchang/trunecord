@@ -56,7 +56,7 @@ func (o *Opener) openOnMacOS(url string) error {
 	
 	if err != nil {
 		// Fallback: Use osascript to open URL
-		script := fmt.Sprintf(`open location "%s"`, url)
+		script := fmt.Sprintf(`open location "%s"`, escapeAppleScriptArg(url))
 		cmd = exec.Command("osascript", "-e", script)
 		err = cmd.Run()
 	}
@@ -70,7 +70,7 @@ func (o *Opener) bringToFrontOnMacOS(url string) error {
 	defaultBrowser := o.getDefaultBrowser()
 	log.Printf("Default browser: %s", defaultBrowser)
 	
-	script := o.buildBrowserScript(defaultBrowser, url)
+	script := o.buildBrowserScript(defaultBrowser, escapeAppleScriptArg(url))
 	
 	if script != "" {
 		cmd := exec.Command("osascript", "-e", script)
@@ -159,9 +159,14 @@ func (o *Opener) buildBrowserScript(browserName, url string) string {
 		`, url)
 		
 	default:
-		// For unknown browsers, just try to open the URL
+		// For unknown browsers, just try to open the URL  
 		return fmt.Sprintf(`open location "%s"`, url)
 	}
+}
+
+// escapeAppleScriptArg escapes double quotes for AppleScript literals
+func escapeAppleScriptArg(s string) string {
+	return strings.ReplaceAll(s, `"`, `\"`)
 }
 
 // getDefaultBrowser returns the default browser on macOS

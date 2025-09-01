@@ -53,8 +53,12 @@ func NewClient(baseURL string) *Client {
 }
 
 func (c *Client) GetAuthURL() string {
-	// Simply append /api/auth to the base URL
-	return fmt.Sprintf("%s/api/auth", c.BaseURL)
+	u, err := url.JoinPath(c.BaseURL, constants.APIAuthPath)
+	if err != nil {
+		// Fallback to string concatenation if URL parsing fails
+		return fmt.Sprintf("%s%s", c.BaseURL, constants.APIAuthPath)
+	}
+	return u
 }
 
 func (c *Client) ParseAuthCallback(callbackURL string) (*TokenData, error) {

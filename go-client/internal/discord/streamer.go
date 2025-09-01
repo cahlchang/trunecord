@@ -108,7 +108,9 @@ func (s *Streamer) StartStreaming(audioChannel <-chan []byte) error {
 	}
 
 	// Set bitrate for better quality
-	encoder.SetBitrate(constants.OpusBitrate)
+	if err := encoder.SetBitrate(constants.OpusBitrate); err != nil {
+		return fmt.Errorf("failed to set opus bitrate: %v", err)
+	}
 
 	s.encoder = encoder
 
