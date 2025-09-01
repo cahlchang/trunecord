@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"trunecord/internal/constants"
 )
 
 type Streamer struct {
@@ -25,7 +26,7 @@ type Streamer struct {
 
 func NewStreamer() *Streamer {
 	return &Streamer{
-		audioBuffer: make(chan []byte, 50), // Reduce buffer size for lower latency
+		audioBuffer: make(chan []byte, constants.AudioBufferSize),
 		stopChannel: make(chan bool),
 	}
 }
@@ -107,7 +108,7 @@ func (s *Streamer) StartStreaming(audioChannel <-chan []byte) error {
 	}
 
 	// Set bitrate for better quality
-	encoder.SetBitrate(128000) // 128 kbps
+	encoder.SetBitrate(constants.OpusBitrate)
 
 	s.encoder = encoder
 
@@ -149,27 +150,27 @@ func (s *Streamer) streamAudio(audioChannel <-chan []byte) {
 
 	// Wait for voice connection to be ready
 	for !s.voiceConn.Ready {
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(constants.VoiceConnectionWaitDelay)
 	}
 
 	// Start speaking
 	s.voiceConn.Speaking(true)
 	defer s.voiceConn.Speaking(false)
 
-	// Discord expects 960 samples per frame at 48kHz (20ms)
-	const frameSize = 960
-	const bytesPerSample = 2 // 16-bit PCM
-	const frameSizeBytes = frameSize * bytesPerSample
+	// Discord expects specific samples per frame at 48kHz (20ms)
+	const frameSize = constants.PCMFrameSize
+	const bytesPerSample = constants.PCMBytesPerSample
+	const frameSizeBytes = constants.PCMFrameSizeBytes
 
 	// Larger buffer to prevent underruns
-	pcmBuffer := make([]byte, 0, frameSizeBytes*10)
+	pcmBuffer := make([]byte, 0, constants.PCMFrameSizeBytes*constants.PCMBufferMultiplier)
 
-	// Timing control for consistent 20ms frames
-	ticker := time.NewTicker(20 * time.Millisecond)
+	// Timing control for consistent audio frames
+	ticker := time.NewTicker(constants.AudioFrameInterval)
 	defer ticker.Stop()
 
 	// Reduce initial delay for lower latency
-	time.Sleep(20 * time.Millisecond)
+	time.Sleep(constants.InitialStreamingDelay)
 
 	for {
 		select {

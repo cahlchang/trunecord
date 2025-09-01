@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"trunecord/internal/constants"
 )
 
 type Client struct {
@@ -97,8 +99,8 @@ func (c *Client) GetGuilds(token string) ([]Guild, error) {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Accept", "application/json")
+	req.Header.Set(constants.AuthorizationHeader, constants.BearerPrefix+token)
+	req.Header.Set(constants.AcceptHeader, constants.ContentTypeJSON)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -142,8 +144,8 @@ func (c *Client) GetChannels(guildID, token string) ([]Channel, error) {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Accept", "application/json")
+	req.Header.Set(constants.AuthorizationHeader, constants.BearerPrefix+token)
+	req.Header.Set(constants.AcceptHeader, constants.ContentTypeJSON)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -167,8 +169,8 @@ func (c *Client) GetChannels(guildID, token string) ([]Channel, error) {
 
 // Helper function to validate Discord ID format
 func isValidDiscordID(id string) bool {
-	// Discord IDs are 64-bit unsigned integers (up to 19 digits)
-	if len(id) < 1 || len(id) > 19 {
+	// Discord IDs are 64-bit unsigned integers
+	if len(id) < constants.MinDiscordIDLength || len(id) > constants.MaxDiscordIDLength {
 		return false
 	}
 	for _, char := range id {
@@ -184,15 +186,15 @@ func (c *Client) VerifyToken(token string) (bool, error) {
 		return false, fmt.Errorf("token cannot be empty")
 	}
 	
-	verifyURL := fmt.Sprintf("%s/api/verify", c.BaseURL)
+	verifyURL := fmt.Sprintf("%s%s", c.BaseURL, constants.APIVerifyPath)
 
 	req, err := http.NewRequest("GET", verifyURL, nil)
 	if err != nil {
 		return false, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Accept", "application/json")
+	req.Header.Set(constants.AuthorizationHeader, constants.BearerPrefix+token)
+	req.Header.Set(constants.AcceptHeader, constants.ContentTypeJSON)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -208,15 +210,15 @@ func (c *Client) GetBotToken(token string) (string, error) {
 		return "", fmt.Errorf("token cannot be empty")
 	}
 	
-	botTokenURL := fmt.Sprintf("%s/api/bot-token", c.BaseURL)
+	botTokenURL := fmt.Sprintf("%s%s", c.BaseURL, constants.APIBotTokenPath)
 
 	req, err := http.NewRequest("GET", botTokenURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Accept", "application/json")
+	req.Header.Set(constants.AuthorizationHeader, constants.BearerPrefix+token)
+	req.Header.Set(constants.AcceptHeader, constants.ContentTypeJSON)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

@@ -7,20 +7,21 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os/exec"
-	"runtime"
 	"strings"
 
 	"trunecord/internal/auth"
+	"trunecord/internal/browser"
+	"trunecord/internal/constants"
 )
 
 type Server struct {
-	port       string
-	authClient *auth.Client
-	templates  *template.Template
-	tokenData  *auth.TokenData
-	streamer   DiscordStreamer
-	wsServer   WebSocketServer
+	port          string
+	authClient    *auth.Client
+	templates     *template.Template
+	tokenData     *auth.TokenData
+	streamer      DiscordStreamer
+	wsServer      WebSocketServer
+	browserOpener *browser.Opener
 }
 
 type DiscordStreamer interface {
@@ -49,10 +50,11 @@ type PageData struct {
 
 func NewServer(port string, authClient *auth.Client, streamer DiscordStreamer, wsServer WebSocketServer) *Server {
 	return &Server{
-		port:       port,
-		authClient: authClient,
-		streamer:   streamer,
-		wsServer:   wsServer,
+		port:          port,
+		authClient:    authClient,
+		streamer:      streamer,
+		wsServer:      wsServer,
+		browserOpener: browser.NewOpener(),
 	}
 }
 
@@ -87,21 +89,9 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) openBrowser() {
-	url := fmt.Sprintf("http://localhost:%s", s.port)
-	var err error
-
-	switch runtime.GOOS {
-	case "linux":
-		err = exec.Command("xdg-open", url).Start()
-	case "windows":
-		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
-	case "darwin":
-		err = exec.Command("open", url).Start()
-	default:
-		log.Printf("Cannot auto-open browser on this platform. Please visit: %s", url)
-		return
-	}
-
+	url := fmt.Sprintf("http://%s:%s", constants.LocalhostAddress, s.port)
+	
+	err := s.browserOpener.Open(url)
 	if err != nil {
 		log.Printf("Failed to open browser: %v", err)
 		log.Printf("Please manually visit: %s", url)
@@ -122,7 +112,7 @@ func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Rendering home page with %d guilds, token: %v", len(data.Guilds), data.Token != "")
 
 	// Set proper content type
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Type", constants.ContentTypeHTML)
 
 	err := s.templates.ExecuteTemplate(w, "index.html", data)
 	if err != nil {
@@ -184,7 +174,7 @@ func (s *Server) handleAuthSuccess(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set proper content type
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Type", constants.ContentTypeHTML)
 
 	err := s.templates.ExecuteTemplate(w, "success.html", data)
 	if err != nil {
@@ -222,7 +212,7 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 			"success": false,
 			"message": "Failed to get bot token from server",
 		}
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", constants.ContentTypeJSON)
 		json.NewEncoder(w).Encode(response)
 		return
 	}
@@ -235,7 +225,7 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 			"success": false,
 			"message": fmt.Sprintf("Failed to connect: %v", err),
 		}
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", constants.ContentTypeJSON)
 		json.NewEncoder(w).Encode(response)
 		return
 	}
@@ -247,7 +237,7 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 		"message": "Connected to Discord voice channel",
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", constants.ContentTypeJSON)
 	json.NewEncoder(w).Encode(response)
 }
 
@@ -265,7 +255,7 @@ func (s *Server) handleDisconnect(w http.ResponseWriter, r *http.Request) {
 			"success": false,
 			"message": fmt.Sprintf("Failed to disconnect: %v", err),
 		}
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", constants.ContentTypeJSON)
 		json.NewEncoder(w).Encode(response)
 		return
 	}
@@ -277,7 +267,7 @@ func (s *Server) handleDisconnect(w http.ResponseWriter, r *http.Request) {
 		"message": "Disconnected from Discord",
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", constants.ContentTypeJSON)
 	json.NewEncoder(w).Encode(response)
 }
 
@@ -303,7 +293,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		status["currentChannel"] = s.streamer.GetChannelID()
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", constants.ContentTypeJSON)
 	json.NewEncoder(w).Encode(status)
 }
 
@@ -332,7 +322,7 @@ func (s *Server) handleChannels(w http.ResponseWriter, r *http.Request) {
 		"channels": channels,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", constants.ContentTypeJSON)
 	json.NewEncoder(w).Encode(response)
 }
 
