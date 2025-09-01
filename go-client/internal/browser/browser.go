@@ -3,6 +3,7 @@ package browser
 import (
 	"fmt"
 	"log"
+	"net/url"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -19,18 +20,18 @@ func NewOpener() *Opener {
 }
 
 // Open opens a URL in the default browser
-func (o *Opener) Open(url string) error {
-	log.Printf("Attempting to open browser at %s", url)
+func (o *Opener) Open(urlStr string) error {
+	log.Printf("Attempting to open browser at %s", sanitizeURLForLog(urlStr))
 
 	switch runtime.GOOS {
 	case "linux":
-		return exec.Command(constants.LinuxOpenCommand, url).Start()
+		return exec.Command(constants.LinuxOpenCommand, urlStr).Start()
 	case "windows":
-		return exec.Command(constants.WindowsOpenCommand, constants.WindowsOpenArgs, url).Start()
+		return exec.Command(constants.WindowsOpenCommand, constants.WindowsOpenArgs, urlStr).Start()
 	case "darwin":
-		return o.openOnMacOS(url)
+		return o.openOnMacOS(urlStr)
 	default:
-		log.Printf("Cannot auto-open browser on this platform. Please visit: %s", url)
+		log.Printf("Cannot auto-open browser on this platform. Please visit: %s", sanitizeURLForLog(urlStr))
 		return nil
 	}
 }
@@ -49,46 +50,75 @@ func (o *Opener) BringToFront(url string) error {
 	}
 }
 
-// openOnMacOS opens URL on macOS using the 'open' command
+// openOnMacOS opens URL on macOS using the default browser
 func (o *Opener) openOnMacOS(url string) error {
 	cmd := exec.Command(constants.MacOSOpenCommand, url)
-	err := cmd.Run()
-	
-	if err != nil {
-		// Fallback: Use osascript to open URL
-		script := fmt.Sprintf(`open location "%s"`, escapeAppleScriptArg(url))
-		cmd = exec.Command("osascript", "-e", script)
-		err = cmd.Run()
-	}
-	
-	return err
+	return cmd.Start()
 }
 
-// bringToFrontOnMacOS brings browser window to front on macOS
+// bringToFrontOnMacOS brings browser to front on macOS
 func (o *Opener) bringToFrontOnMacOS(url string) error {
-	// First, get the default browser
-	defaultBrowser := o.getDefaultBrowser()
-	log.Printf("Default browser: %s", defaultBrowser)
-	
-	script := o.buildBrowserScript(defaultBrowser, escapeAppleScriptArg(url))
-	
-	if script != "" {
-		cmd := exec.Command("osascript", "-e", script)
-		err := cmd.Run()
-		if err == nil {
-			log.Println("Brought existing browser window to front")
-			return nil
-		}
+	browser := o.getDefaultBrowser()
+	if browser == "" {
+		browser = constants.SafariBrowser
 	}
+
+	// Escape quotes and backslashes in URL for AppleScript
+	escapedURL := escapeForAppleScript(url)
+
+	// Create AppleScript to bring browser to front or open new tab
+	script := o.getBrowserScript(browser, escapedURL)
 	
-	// Fallback: just open the URL with system default
-	return exec.Command(constants.MacOSOpenCommand, url).Run()
+	cmd := exec.Command(constants.AppleScriptCommand, "-e", script)
+	err := cmd.Run()
+	if err != nil {
+		// Fallback to simply opening the URL
+		return o.openOnMacOS(url)
+	}
+	return nil
 }
 
-// buildBrowserScript creates AppleScript for specific browsers
-func (o *Opener) buildBrowserScript(browserName, url string) string {
-	switch browserName {
-	case constants.Safari, constants.SafariApp:
+// escapeForAppleScript escapes special characters for AppleScript
+func escapeForAppleScript(s string) string {
+	// Escape backslashes first, then quotes
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	s = strings.ReplaceAll(s, "\"", "\\\"")
+	return s
+}
+
+// getDefaultBrowser gets the default browser on macOS
+func (o *Opener) getDefaultBrowser() string {
+	cmd := exec.Command(constants.DefaultsCommand, constants.DefaultsReadKey, constants.LaunchServicesDomain, constants.HTTPHandlerKey)
+	output, err := cmd.Output()
+	if err != nil {
+		return constants.SafariBrowser
+	}
+
+	bundleID := strings.TrimSpace(string(output))
+	
+	// Map bundle IDs to browser names
+	switch bundleID {
+	case constants.SafariBundleID:
+		return constants.SafariBrowser
+	case constants.ChromeBundleID:
+		return constants.GoogleChrome
+	case constants.FirefoxBundleID:
+		return constants.Firefox
+	case constants.EdgeBundleID:
+		return constants.Edge
+	case constants.BraveBundleID:
+		return constants.Brave
+	case constants.ArcBundleID:
+		return constants.Arc
+	default:
+		return constants.SafariBrowser
+	}
+}
+
+// getBrowserScript returns AppleScript for specific browser
+func (o *Opener) getBrowserScript(browser, url string) string {
+	switch browser {
+	case constants.SafariBrowser:
 		return fmt.Sprintf(`
 			tell application "Safari"
 				activate
@@ -134,15 +164,7 @@ func (o *Opener) buildBrowserScript(browserName, url string) string {
 			end tell
 		`, url, url)
 		
-	case constants.Arc, constants.ArcApp:
-		return fmt.Sprintf(`
-			tell application "Arc"
-				activate
-				open location "%s"
-			end tell
-		`, url)
-		
-	case constants.Firefox, constants.FirefoxApp:
+	case constants.Firefox:
 		return fmt.Sprintf(`
 			tell application "Firefox"
 				activate
@@ -150,82 +172,80 @@ func (o *Opener) buildBrowserScript(browserName, url string) string {
 			end tell
 		`, url)
 		
-	case constants.MicrosoftEdge, constants.MicrosoftEdgeApp:
+	case constants.Edge:
 		return fmt.Sprintf(`
 			tell application "Microsoft Edge"
+				activate
+				set found to false
+				repeat with w in windows
+					set tabIndex to 0
+					repeat with t in tabs of w
+						set tabIndex to tabIndex + 1
+						if URL of t starts with "%s" then
+							set active tab index of w to tabIndex
+							set index of w to 1
+							set found to true
+							exit repeat
+						end if
+					end repeat
+					if found then exit repeat
+				end repeat
+				if not found then
+					open location "%s"
+				end if
+			end tell
+		`, url, url)
+		
+	case constants.Brave:
+		return fmt.Sprintf(`
+			tell application "Brave Browser"
+				activate
+				set found to false
+				repeat with w in windows
+					set tabIndex to 0
+					repeat with t in tabs of w
+						set tabIndex to tabIndex + 1
+						if URL of t starts with "%s" then
+							set active tab index of w to tabIndex
+							set index of w to 1
+							set found to true
+							exit repeat
+						end if
+					end repeat
+					if found then exit repeat
+				end repeat
+				if not found then
+					open location "%s"
+				end if
+			end tell
+		`, url, url)
+		
+	case constants.Arc:
+		return fmt.Sprintf(`
+			tell application "Arc"
 				activate
 				open location "%s"
 			end tell
 		`, url)
 		
 	default:
-		// For unknown browsers, just try to open the URL  
-		return fmt.Sprintf(`open location "%s"`, url)
+		// Generic open command
+		return fmt.Sprintf(`
+			tell application "System Events"
+				open location "%s"
+			end tell
+		`, url)
 	}
 }
 
-// escapeAppleScriptArg escapes double quotes for AppleScript literals
-func escapeAppleScriptArg(s string) string {
-	return strings.ReplaceAll(s, `"`, `\"`)
-}
-
-// getDefaultBrowser returns the default browser on macOS
-func (o *Opener) getDefaultBrowser() string {
-	// Get the default browser on macOS
-	cmd := exec.Command("defaults", "read", "com.apple.LaunchServices/com.apple.launchservices.secure", "LSHandlers")
-	output, err := cmd.Output()
-	if err == nil {
-		return o.parseBrowserFromLSHandlers(string(output))
+// sanitizeURLForLog removes sensitive query parameters and fragments from URL for logging
+func sanitizeURLForLog(u string) string {
+	parsed, err := url.Parse(u)
+	if err != nil {
+		return "<invalid-url>"
 	}
-	
-	// Fallback: try a simpler method
-	cmd = exec.Command("osascript", "-e", `tell application "System Events" to get name of first application process whose frontmost is true`)
-	if output, err := cmd.Output(); err == nil {
-		return strings.TrimSpace(string(output))
-	}
-	
-	// Default to Safari if we can't determine
-	return constants.Safari
-}
-
-// parseBrowserFromLSHandlers parses browser information from macOS LSHandlers
-func (o *Opener) parseBrowserFromLSHandlers(output string) string {
-	// Parse the output to find the default browser for http/https
-	lines := strings.Split(output, "\n")
-	for i, line := range lines {
-		if strings.Contains(line, "LSHandlerURLScheme = https") || strings.Contains(line, "LSHandlerURLScheme = http") {
-			// Look for the bundle identifier in the next few lines
-			for j := i; j < len(lines) && j < i+5; j++ {
-				if strings.Contains(lines[j], "LSHandlerRoleAll") {
-					// Extract bundle ID
-					parts := strings.Split(lines[j], "=")
-					if len(parts) >= 2 {
-						bundleID := strings.TrimSpace(parts[1])
-						bundleID = strings.Trim(bundleID, ";")
-						bundleID = strings.Trim(bundleID, `"`)
-						return o.mapBundleIDToAppName(bundleID)
-					}
-				}
-			}
-		}
-	}
-	return constants.Safari
-}
-
-// mapBundleIDToAppName maps macOS bundle IDs to application names
-func (o *Opener) mapBundleIDToAppName(bundleID string) string {
-	switch bundleID {
-	case constants.SafariBundleID:
-		return constants.Safari
-	case constants.ChromeBundleID:
-		return constants.GoogleChrome
-	case constants.ArcBundleID:
-		return constants.Arc
-	case constants.FirefoxBundleID:
-		return constants.Firefox
-	case constants.EdgeBundleID:
-		return constants.MicrosoftEdge
-	default:
-		return constants.Safari
-	}
+	// Remove query parameters and fragment that may contain sensitive data
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+	return parsed.String()
 }
