@@ -138,6 +138,71 @@ ytmusic-player-bar .middle-controls {
   box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
 }
 
+/* Spotify specific styles */
+.discord-stream-button-spotify {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Spotify player bar adjustments */
+[data-testid="now-playing-widget"] .discord-stream-button,
+.Root__now-playing-bar .discord-stream-button {
+  margin: 0 8px;
+}
+
+/* Apple Music specific styles */
+.discord-stream-button-appleMusic {
+  height: 28px;
+  padding: 0 14px;
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 500;
+  backdrop-filter: blur(10px);
+  background-color: rgba(88, 101, 242, 0.9);
+}
+
+.discord-stream-button-appleMusic:hover {
+  background-color: rgba(71, 82, 196, 0.95);
+}
+
+/* Apple Music player adjustments */
+.web-chrome-playback-controls .discord-stream-button,
+amp-playback-controls .discord-stream-button {
+  margin: 0 12px;
+  align-self: center;
+}
+
+/* Amazon Music specific styles */
+.discord-stream-button-amazonMusic {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 18px;
+  font-size: 14px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Amazon Music player adjustments */
+#transport .discord-stream-button,
+[data-testid="player-bar"] .discord-stream-button {
+  margin: 0 10px;
+  align-self: center;
+}
+
+/* Common service-specific button positioning */
+.discord-stream-button-spotify,
+.discord-stream-button-appleMusic,
+.discord-stream-button-amazonMusic {
+  position: relative;
+  z-index: 100;
+  flex-shrink: 0;
+}
+
 /* Dark mode compatibility */
 @media (prefers-color-scheme: dark) {
   .discord-notification {

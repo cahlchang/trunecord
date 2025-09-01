@@ -53,6 +53,16 @@
     .info a:hover {
       text-decoration: underline;
     }
+    
+    .service-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      background-color: #2a2a2a;
+      border-radius: 4px;
+      font-size: 11px;
+      color: #aaa;
+      border: 1px solid #333;
+    }
   </style>
 </head>
 <body>
@@ -70,6 +80,16 @@
       <li id="step-2"></li>
       <li id="step-3"></li>
     </ol>
+    
+    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #333;">
+      <p style="font-size: 12px; color: #666; margin: 0 0 8px 0;">Supported Services:</p>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+        <span class="service-badge">YouTube Music</span>
+        <span class="service-badge">Spotify</span>
+        <span class="service-badge">Apple Music</span>
+        <span class="service-badge">Amazon Music</span>
+      </div>
+    </div>
   </div>
   
   <script src="popup.js"></script>
