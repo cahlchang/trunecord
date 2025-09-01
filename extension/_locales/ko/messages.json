@@ -3,7 +3,7 @@
     "message": "Trunecord - Discord로 스트리밍"
   },
   "extensionDescription": {
-    "message": "YouTube Music 오디오를 Discord로 스트리밍합니다"
+    "message": "YouTube Music, Spotify, Apple Music, Amazon Music 오디오를 Discord로 스트리밍합니다"
   },
   "clickExtensionIcon": {
     "message": "도구 모음의 확장 프로그램 아이콘을 클릭하여 스트리밍을 시작하세요"

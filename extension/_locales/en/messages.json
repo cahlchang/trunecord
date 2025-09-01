@@ -3,7 +3,7 @@
     "message": "Trunecord - Stream to Discord"
   },
   "extensionDescription": {
-    "message": "Stream YouTube Music audio to Discord"
+    "message": "Stream music from YouTube Music, Spotify, Apple Music, and Amazon Music to Discord"
   },
   "clickExtensionIcon": {
     "message": "Click the extension icon in the toolbar to start streaming"
@@ -63,7 +63,10 @@
     "message": "Open the local client app"
   },
   "goToYouTubeMusic": {
-    "message": "Go to YouTube Music"
+    "message": "Go to your music streaming service"
+  },
+  "goToMusicService": {
+    "message": "Go to your music streaming service"
   },
   "clickDiscordButton": {
     "message": "Click the Discord button in the player"
@@ -99,7 +102,10 @@
     "message": "Unknown error"
   },
   "controlYouTubeMusicStreaming": {
-    "message": "Control YouTube Music streaming to Discord"
+    "message": "Control music streaming to Discord"
+  },
+  "controlMusicStreaming": {
+    "message": "Control music streaming to Discord"
   },
   "pause": {
     "message": "Pause"

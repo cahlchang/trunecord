@@ -3,7 +3,7 @@
     "message": "Trunecord - 流式传输到Discord"
   },
   "extensionDescription": {
-    "message": "将YouTube Music音频流式传输到Discord"
+    "message": "将YouTube Music、Spotify、Apple Music和Amazon Music的音频流式传输到Discord"
   },
   "clickExtensionIcon": {
     "message": "请点击工具栏中的扩展图标开始流式传输"

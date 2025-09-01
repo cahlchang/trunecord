@@ -4,7 +4,7 @@ function initializeLocalization() {
   document.getElementById('status-text').textContent = chrome.i18n.getMessage('checkingConnection');
   document.getElementById('to-start-streaming').textContent = chrome.i18n.getMessage('toStartStreaming');
   document.getElementById('open-client').textContent = chrome.i18n.getMessage('openLocalClientApp');
-  document.getElementById('step-2').textContent = chrome.i18n.getMessage('goToYouTubeMusic');
+  document.getElementById('step-2').textContent = chrome.i18n.getMessage('goToMusicService') || chrome.i18n.getMessage('goToYouTubeMusic');
   document.getElementById('step-3').textContent = chrome.i18n.getMessage('clickDiscordButton');
 }
 
@@ -48,13 +48,26 @@ document.getElementById('open-client').addEventListener('click', (e) => {
   alert(chrome.i18n.getMessage('launchClientManually'));
 });
 
-// Add manual capture button for YouTube Music tabs
+// Add manual capture button for supported music service tabs
 async function addCaptureButton() {
   const info = document.querySelector('.info');
   
-  // Check if we're on YouTube Music
+  // Check if we're on a supported music service
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!activeTab || !activeTab.url || !activeTab.url.includes('music.youtube.com')) {
+  if (!activeTab || !activeTab.url) {
+    return;
+  }
+  
+  const supportedServices = [
+    'music.youtube.com',
+    'open.spotify.com',
+    'music.apple.com',
+    'music.amazon.com',
+    'music.amazon.co.jp'
+  ];
+  
+  const isSupported = supportedServices.some(service => activeTab.url.includes(service));
+  if (!isSupported) {
     return;
   }
   
@@ -78,7 +91,7 @@ async function addCaptureButton() {
       ${isStreaming ? chrome.i18n.getMessage('stopStreamingButton') : chrome.i18n.getMessage('startStreamingButton')}
     </button>
     <p style="font-size: 12px; color: #888; margin-top: 8px;">
-      ${chrome.i18n.getMessage('controlYouTubeMusicStreaming')}
+      ${chrome.i18n.getMessage('controlMusicStreaming') || chrome.i18n.getMessage('controlYouTubeMusicStreaming')}
     </p>
   `;
   

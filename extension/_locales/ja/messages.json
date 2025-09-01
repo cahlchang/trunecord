@@ -3,7 +3,7 @@
     "message": "Trunecord - Discordにストリーミング"
   },
   "extensionDescription": {
-    "message": "YouTube Musicの音声をDiscordにストリーミングします"
+    "message": "YouTube Music、Spotify、Apple Music、Amazon Musicの音声をDiscordにストリーミングします"
   },
   "clickExtensionIcon": {
     "message": "ツールバーの拡張機能アイコンをクリックしてストリーミングを開始してください"
@@ -63,7 +63,10 @@
     "message": "ローカルクライアントアプリを開く"
   },
   "goToYouTubeMusic": {
-    "message": "YouTube Musicにアクセス"
+    "message": "音楽ストリーミングサービスにアクセス"
+  },
+  "goToMusicService": {
+    "message": "音楽ストリーミングサービスにアクセス"
   },
   "clickDiscordButton": {
     "message": "プレイヤーのDiscordボタンをクリック"
@@ -99,7 +102,10 @@
     "message": "不明なエラー"
   },
   "controlYouTubeMusicStreaming": {
-    "message": "YouTube MusicのDiscordストリーミングを制御"
+    "message": "音楽のDiscordストリーミングを制御"
+  },
+  "controlMusicStreaming": {
+    "message": "音楽のDiscordストリーミングを制御"
   },
   "pause": {
     "message": "一時停止"
