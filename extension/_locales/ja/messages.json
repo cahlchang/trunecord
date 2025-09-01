@@ -118,5 +118,8 @@
   },
   "clickToStop": {
     "message": "クリックして停止"
+  },
+  "failedToStop": {
+    "message": "ストリーミングの停止に失敗しました"
   }
 }

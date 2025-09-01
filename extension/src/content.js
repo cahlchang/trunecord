@@ -147,7 +147,7 @@ async function toggleStream() {
       discordButton.disabled = false;
     });
   } catch (error) {
-    showNotification(chrome.i18n.getMessage('failedToConnect') || 'Failed to connect');
+    showNotification(chrome.i18n.getMessage('failedToStop') || 'Failed to stop');
     discordButton.disabled = false;
   }
 }
