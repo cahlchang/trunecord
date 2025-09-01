@@ -109,5 +109,17 @@
   },
   "pause": {
     "message": "Pause"
+  },
+  "connected": {
+    "message": "Connected"
+  },
+  "disconnected": {
+    "message": "Disconnected"
+  },
+  "clickToStop": {
+    "message": "Click to stop"
+  },
+  "failedToStop": {
+    "message": "Failed to stop streaming"
   }
 }
