@@ -311,9 +311,9 @@ func (s *Server) handleChannels(w http.ResponseWriter, r *http.Request) {
 	}
 	guildID := pathParts[3]
 
-	channels, err := s.authClient.GetChannels(s.tokenData.Token, guildID)
+	channels, err := s.authClient.GetChannels(guildID, s.tokenData.Token)
 	if err != nil {
-		log.Printf("Failed to get channels: %v", err)
+		log.Printf("Failed to get channels for guild %s: %v", guildID, err)
 		http.Error(w, "Failed to get channels", http.StatusInternalServerError)
 		return
 	}
