@@ -139,42 +139,48 @@ func (s *Server) handleAuth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCallback(w http.ResponseWriter, r *http.Request) {
-	// This endpoint is not used in the current flow
-	// Discord redirects to Lambda, which then redirects to /auth/success
-	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
-}
-
-func (s *Server) handleAuthSuccess(w http.ResponseWriter, r *http.Request) {
 	// Parse token and guilds from URL parameters
 	token := r.URL.Query().Get("token")
 	guildsParam := r.URL.Query().Get("guilds")
 
-	if token != "" && guildsParam != "" {
-		// Parse guilds JSON
-		var guilds []auth.Guild
-		err := json.Unmarshal([]byte(guildsParam), &guilds)
-		if err != nil {
-			log.Printf("Failed to parse guilds: %v", err)
-			http.Redirect(w, r, "/?error="+url.QueryEscape("Failed to parse authentication data"), http.StatusTemporaryRedirect)
-			return
-		}
+	if token == "" || guildsParam == "" {
+		log.Printf("Missing token or guilds in callback")
+		http.Redirect(w, r, "/?error="+url.QueryEscape("Missing authentication data"), http.StatusTemporaryRedirect)
+		return
+	}
 
-		// Store token data
-		s.tokenData = &auth.TokenData{
-			Token:  token,
-			Guilds: guilds,
-		}
-		log.Printf("Successfully authenticated with %d guilds from URL params", len(guilds))
+	// Parse guilds JSON
+	var guilds []auth.Guild
+	err := json.Unmarshal([]byte(guildsParam), &guilds)
+	if err != nil {
+		log.Printf("Failed to parse guilds: %v", err)
+		http.Redirect(w, r, "/?error="+url.QueryEscape("Failed to parse authentication data"), http.StatusTemporaryRedirect)
+		return
+	}
+
+	// Store token data
+	s.tokenData = &auth.TokenData{
+		Token:  token,
+		Guilds: guilds,
+	}
+	log.Printf("Successfully authenticated with %d guilds", len(guilds))
+
+	// Redirect to home page where guilds will be displayed
+	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+}
+
+func (s *Server) handleAuthSuccess(w http.ResponseWriter, r *http.Request) {
+	// Check if we have token data from callback
+	if s.tokenData == nil {
+		http.Redirect(w, r, "/?error="+url.QueryEscape("Not authenticated"), http.StatusTemporaryRedirect)
+		return
 	}
 
 	data := PageData{
 		Title:   "Authentication Successful",
 		Success: "Successfully authenticated with Discord!",
-	}
-
-	if s.tokenData != nil {
-		data.Guilds = s.tokenData.Guilds
-		data.Token = s.tokenData.Token
+		Guilds:  s.tokenData.Guilds,
+		Token:   s.tokenData.Token,
 	}
 
 	// Set proper content type

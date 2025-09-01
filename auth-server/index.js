@@ -29,10 +29,6 @@ const corsOptions = {
       return callback(null, true);
     }
     
-    // Allow trunecord protocol (for desktop app)
-    if (origin.startsWith('trunecord://')) {
-      return callback(null, true);
-    }
     
     // Reject other origins
     callback(new Error('Not allowed by CORS'));
@@ -111,20 +107,12 @@ app.get('/api/health', (req, res) => {
 app.get('/api/auth', (req, res) => {
   const randomState = generateState();
   
-  // Check if client wants custom protocol redirect
-  const redirectProtocol = req.query.redirect_protocol;
-  const useProtocol = redirectProtocol === 'trunecord';
-  const useHttp = redirectProtocol === 'http';
+  // Always use HTTP redirect for localhost development
+  const useHttp = true;
   
-  console.log('[AUTH] Request params:', req.query);
-  console.log('[AUTH] Redirect protocol:', redirectProtocol);
-  console.log('[AUTH] Use protocol:', useProtocol);
-  console.log('[AUTH] Use HTTP:', useHttp);
-  
-  // Store protocol preference in secure JWT-signed state
+  // Store state data in secure JWT-signed state
   const stateData = {
     random: randomState,
-    protocol: redirectProtocol || null,
     timestamp: Date.now()
   };
   const secureState = createSecureState(stateData);
@@ -156,15 +144,10 @@ app.get('/api/callback', async (req, res) => {
   }
   
   // Verify JWT-signed state for CSRF protection
-  let useProtocol = false;
-  let useHttp = false;
+  const useHttp = true;
   try {
     const stateData = verifySecureState(state);
-    useProtocol = stateData.protocol === 'trunecord';
-    useHttp = stateData.protocol === 'http';
     console.log('[CALLBACK] Verified state:', stateData);
-    console.log('[CALLBACK] Use protocol:', useProtocol);
-    console.log('[CALLBACK] Use HTTP:', useHttp);
   } catch (e) {
     console.error('[CALLBACK] State verification failed:', e.message);
     return res.status(400).json({ error: 'Invalid state parameter - potential CSRF attack' });
@@ -218,180 +201,18 @@ app.get('/api/callback', async (req, res) => {
       guildIds: commonGuilds.map(g => g.id)
     }, process.env.JWT_SECRET, { expiresIn: '7d' });
     
-    // Check if we should use HTTP redirect (for local development)
-    if (useHttp) {
-      // Redirect to localhost:48766 for local development
-      const httpUrl = new URL('http://localhost:48766/auth/callback');
-      httpUrl.searchParams.append('token', token);
-      httpUrl.searchParams.append('guilds', JSON.stringify(commonGuilds));
-      
-      console.log('[CALLBACK] Using HTTP redirect:', httpUrl.toString());
-      
-      // Direct redirect to localhost
-      res.redirect(httpUrl.toString());
-    } else if (useProtocol) {
-      // Redirect to custom protocol URL for desktop app
-      const protocolUrl = new URL('trunecord://auth/callback');
-      protocolUrl.searchParams.append('token', token);
-      protocolUrl.searchParams.append('guilds', JSON.stringify(commonGuilds));
-      
-      console.log('[CALLBACK] Using protocol redirect:', protocolUrl.toString());
-      
-      // Use HTML page with JavaScript redirect for protocol handling
-      res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Redirecting to trunecord...</title>
-          <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              display: flex;
-              justify-content: center;
-              align-items: center;
-              height: 100vh;
-              margin: 0;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              color: white;
-            }
-            .container {
-              text-align: center;
-              padding: 2rem;
-              background: rgba(255, 255, 255, 0.1);
-              border-radius: 10px;
-              backdrop-filter: blur(10px);
-            }
-            h1 { margin-bottom: 1rem; }
-            p { margin: 0.5rem 0; }
-            a {
-              color: white;
-              text-decoration: underline;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>Authentication Successful!</h1>
-            <p>Redirecting to trunecord app...</p>
-            <p>If the app doesn't open automatically, <a href="${protocolUrl.toString()}">click here</a></p>
-            <p style="margin-top: 2rem; font-size: 0.9em;">You can close this window after the app opens.</p>
-          </div>
-          <script>
-            // Attempt to redirect to the custom protocol
-            window.location.href = "${protocolUrl.toString()}";
-            
-            // Show manual link after 2 seconds
-            setTimeout(() => {
-              document.querySelector('a').style.display = 'inline';
-            }, 2000);
-          </script>
-        </body>
-        </html>
-      `);
-    } else {
-      // Original behavior: redirect to GUI app via protocol
-      const protocolUrl = new URL('/auth/callback', process.env.FRONTEND_URL);
-      protocolUrl.searchParams.append('token', token);
-      protocolUrl.searchParams.append('guilds', JSON.stringify(commonGuilds));
-      
-      console.log('[CALLBACK] Using default redirect:', protocolUrl.toString());
-      console.log('[CALLBACK] FRONTEND_URL:', process.env.FRONTEND_URL);
-      
-      // Use HTML page with JavaScript redirect for protocol handling
-      res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Redirecting to trunecord...</title>
-          <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              display: flex;
-              justify-content: center;
-              align-items: center;
-              height: 100vh;
-              margin: 0;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              color: white;
-            }
-            .container {
-              text-align: center;
-              padding: 2rem;
-              background: rgba(255, 255, 255, 0.1);
-              border-radius: 10px;
-              backdrop-filter: blur(10px);
-            }
-            h1 { margin-bottom: 1rem; }
-            p { margin: 0.5rem 0; }
-            a {
-              color: white;
-              text-decoration: underline;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>Authentication Successful!</h1>
-            <p>Redirecting to trunecord app...</p>
-            <p>If the app doesn't open automatically, <a href="${protocolUrl.toString()}">click here</a></p>
-            <p style="margin-top: 2rem; font-size: 0.9em;">You can close this window after the app opens.</p>
-          </div>
-          <script>
-            // Attempt to redirect to the custom protocol
-            window.location.href = "${protocolUrl.toString()}";
-            
-            // Show manual link after 2 seconds
-            setTimeout(() => {
-              document.querySelector('a').style.display = 'inline';
-            }, 2000);
-          </script>
-        </body>
-        </html>
-      `);
-    }
+    // Always redirect to localhost:48766 for local development
+    const httpUrl = new URL('http://localhost:48766/auth/callback');
+    httpUrl.searchParams.append('token', token);
+    httpUrl.searchParams.append('guilds', JSON.stringify(commonGuilds));
+    
+    console.log('[CALLBACK] Redirecting to:', httpUrl.toString());
+    
+    // Direct redirect to localhost
+    res.redirect(httpUrl.toString());
   } catch (error) {
     console.error('OAuth error:', error);
-    
-    // Check if using custom protocol
-    if (useProtocol) {
-      // Return error page for protocol
-      const errorUrl = 'trunecord://auth/error?error=' + encodeURIComponent(error.message || 'Authentication failed');
-      res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Authentication Error</title>
-          <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              display: flex;
-              justify-content: center;
-              align-items: center;
-              height: 100vh;
-              margin: 0;
-              background: #f44336;
-              color: white;
-            }
-            .container {
-              text-align: center;
-              padding: 2rem;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>Authentication Failed</h1>
-            <p>Please close this window and try again.</p>
-          </div>
-          <script>
-            window.location.href = "${errorUrl}";
-          </script>
-        </body>
-        </html>
-      `);
-    } else {
-      res.status(500).json({ error: 'Authentication failed' });
-    }
+    res.status(500).json({ error: 'Authentication failed' });
   }
 });
 

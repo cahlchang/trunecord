@@ -51,19 +51,8 @@ func NewClient(baseURL string) *Client {
 }
 
 func (c *Client) GetAuthURL() string {
-	baseURL, err := url.Parse(c.BaseURL)
-	if err != nil {
-		// Fallback to string concatenation if URL parsing fails
-		return fmt.Sprintf("%s/api/auth?redirect_protocol=http", c.BaseURL)
-	}
-	
-	authURL := baseURL.ResolveReference(&url.URL{Path: "/api/auth"})
-	
-	query := authURL.Query()
-	query.Set("redirect_protocol", "http")
-	authURL.RawQuery = query.Encode()
-	
-	return authURL.String()
+	// Simply append /api/auth to the base URL
+	return fmt.Sprintf("%s/api/auth", c.BaseURL)
 }
 
 func (c *Client) ParseAuthCallback(callbackURL string) (*TokenData, error) {
@@ -101,14 +90,9 @@ func (c *Client) GetGuilds(token string) ([]Guild, error) {
 		return nil, fmt.Errorf("token cannot be empty")
 	}
 	
-	baseURL, err := url.Parse(c.BaseURL)
-	if err != nil {
-		return nil, fmt.Errorf("invalid base URL: %w", err)
-	}
-	
-	guildsURL := baseURL.ResolveReference(&url.URL{Path: "/api/guilds"})
+	guildsURL := fmt.Sprintf("%s/api/guilds", c.BaseURL)
 
-	req, err := http.NewRequest("GET", guildsURL.String(), nil)
+	req, err := http.NewRequest("GET", guildsURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -150,16 +134,10 @@ func (c *Client) GetChannels(guildID, token string) ([]Channel, error) {
 		return nil, fmt.Errorf("invalid guildID format")
 	}
 	
-	baseURL, err := url.Parse(c.BaseURL)
-	if err != nil {
-		return nil, fmt.Errorf("invalid base URL: %w", err)
-	}
-	
 	// Use url.PathEscape to prevent path traversal attacks
-	safePath := fmt.Sprintf("/api/guilds/%s/channels", url.PathEscape(guildID))
-	channelsURL := baseURL.ResolveReference(&url.URL{Path: safePath})
+	channelsURL := fmt.Sprintf("%s/api/guilds/%s/channels", c.BaseURL, url.PathEscape(guildID))
 
-	req, err := http.NewRequest("GET", channelsURL.String(), nil)
+	req, err := http.NewRequest("GET", channelsURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -206,14 +184,9 @@ func (c *Client) VerifyToken(token string) (bool, error) {
 		return false, fmt.Errorf("token cannot be empty")
 	}
 	
-	baseURL, err := url.Parse(c.BaseURL)
-	if err != nil {
-		return false, fmt.Errorf("invalid base URL: %w", err)
-	}
-	
-	verifyURL := baseURL.ResolveReference(&url.URL{Path: "/api/verify"})
+	verifyURL := fmt.Sprintf("%s/api/verify", c.BaseURL)
 
-	req, err := http.NewRequest("GET", verifyURL.String(), nil)
+	req, err := http.NewRequest("GET", verifyURL, nil)
 	if err != nil {
 		return false, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -235,14 +208,9 @@ func (c *Client) GetBotToken(token string) (string, error) {
 		return "", fmt.Errorf("token cannot be empty")
 	}
 	
-	baseURL, err := url.Parse(c.BaseURL)
-	if err != nil {
-		return "", fmt.Errorf("invalid base URL: %w", err)
-	}
-	
-	botTokenURL := baseURL.ResolveReference(&url.URL{Path: "/api/bot-token"})
+	botTokenURL := fmt.Sprintf("%s/api/bot-token", c.BaseURL)
 
-	req, err := http.NewRequest("GET", botTokenURL.String(), nil)
+	req, err := http.NewRequest("GET", botTokenURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
