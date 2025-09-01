@@ -10,7 +10,7 @@ import (
 func TestGetAuthURL(t *testing.T) {
 	client := NewClient("https://test.api.com")
 
-	expected := "https://test.api.com/api/auth?redirect_protocol=http"
+	expected := "https://test.api.com/api/auth"
 	got := client.GetAuthURL()
 
 	if got != expected {

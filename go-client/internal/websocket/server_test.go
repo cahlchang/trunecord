@@ -108,6 +108,17 @@ func TestServer_HandleWebSocket(t *testing.T) {
 	}
 	defer conn.Close()
 
+	// First, we should receive a handshake message from the server
+	var handshakeResponse Message
+	err = conn.ReadJSON(&handshakeResponse)
+	if err != nil {
+		t.Errorf("Failed to read handshake response: %v", err)
+	}
+
+	if handshakeResponse.Type != "handshake" {
+		t.Errorf("Expected handshake response type 'handshake', got %v", handshakeResponse.Type)
+	}
+
 	// Send a status message
 	statusMsg := Message{Type: "status"}
 	err = conn.WriteJSON(statusMsg)

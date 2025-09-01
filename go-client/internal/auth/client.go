@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"trunecord/internal/constants"
 )
 
 type Client struct {
@@ -51,19 +53,12 @@ func NewClient(baseURL string) *Client {
 }
 
 func (c *Client) GetAuthURL() string {
-	baseURL, err := url.Parse(c.BaseURL)
+	u, err := url.JoinPath(c.BaseURL, constants.APIAuthPath)
 	if err != nil {
 		// Fallback to string concatenation if URL parsing fails
-		return fmt.Sprintf("%s/api/auth?redirect_protocol=http", c.BaseURL)
+		return fmt.Sprintf("%s%s", c.BaseURL, constants.APIAuthPath)
 	}
-	
-	authURL := baseURL.ResolveReference(&url.URL{Path: "/api/auth"})
-	
-	query := authURL.Query()
-	query.Set("redirect_protocol", "http")
-	authURL.RawQuery = query.Encode()
-	
-	return authURL.String()
+	return u
 }
 
 func (c *Client) ParseAuthCallback(callbackURL string) (*TokenData, error) {
@@ -101,20 +96,15 @@ func (c *Client) GetGuilds(token string) ([]Guild, error) {
 		return nil, fmt.Errorf("token cannot be empty")
 	}
 	
-	baseURL, err := url.Parse(c.BaseURL)
-	if err != nil {
-		return nil, fmt.Errorf("invalid base URL: %w", err)
-	}
-	
-	guildsURL := baseURL.ResolveReference(&url.URL{Path: "/api/guilds"})
+	guildsURL := fmt.Sprintf("%s/api/guilds", c.BaseURL)
 
-	req, err := http.NewRequest("GET", guildsURL.String(), nil)
+	req, err := http.NewRequest("GET", guildsURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Accept", "application/json")
+	req.Header.Set(constants.AuthorizationHeader, constants.BearerPrefix+token)
+	req.Header.Set(constants.AcceptHeader, constants.ContentTypeJSON)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -150,22 +140,16 @@ func (c *Client) GetChannels(guildID, token string) ([]Channel, error) {
 		return nil, fmt.Errorf("invalid guildID format")
 	}
 	
-	baseURL, err := url.Parse(c.BaseURL)
-	if err != nil {
-		return nil, fmt.Errorf("invalid base URL: %w", err)
-	}
-	
 	// Use url.PathEscape to prevent path traversal attacks
-	safePath := fmt.Sprintf("/api/guilds/%s/channels", url.PathEscape(guildID))
-	channelsURL := baseURL.ResolveReference(&url.URL{Path: safePath})
+	channelsURL := fmt.Sprintf("%s/api/guilds/%s/channels", c.BaseURL, url.PathEscape(guildID))
 
-	req, err := http.NewRequest("GET", channelsURL.String(), nil)
+	req, err := http.NewRequest("GET", channelsURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Accept", "application/json")
+	req.Header.Set(constants.AuthorizationHeader, constants.BearerPrefix+token)
+	req.Header.Set(constants.AcceptHeader, constants.ContentTypeJSON)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -189,8 +173,8 @@ func (c *Client) GetChannels(guildID, token string) ([]Channel, error) {
 
 // Helper function to validate Discord ID format
 func isValidDiscordID(id string) bool {
-	// Discord IDs are 64-bit unsigned integers (up to 19 digits)
-	if len(id) < 1 || len(id) > 19 {
+	// Discord IDs are 64-bit unsigned integers
+	if len(id) < constants.MinDiscordIDLength || len(id) > constants.MaxDiscordIDLength {
 		return false
 	}
 	for _, char := range id {
@@ -206,20 +190,15 @@ func (c *Client) VerifyToken(token string) (bool, error) {
 		return false, fmt.Errorf("token cannot be empty")
 	}
 	
-	baseURL, err := url.Parse(c.BaseURL)
-	if err != nil {
-		return false, fmt.Errorf("invalid base URL: %w", err)
-	}
-	
-	verifyURL := baseURL.ResolveReference(&url.URL{Path: "/api/verify"})
+	verifyURL := fmt.Sprintf("%s%s", c.BaseURL, constants.APIVerifyPath)
 
-	req, err := http.NewRequest("GET", verifyURL.String(), nil)
+	req, err := http.NewRequest("GET", verifyURL, nil)
 	if err != nil {
 		return false, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Accept", "application/json")
+	req.Header.Set(constants.AuthorizationHeader, constants.BearerPrefix+token)
+	req.Header.Set(constants.AcceptHeader, constants.ContentTypeJSON)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -235,20 +214,15 @@ func (c *Client) GetBotToken(token string) (string, error) {
 		return "", fmt.Errorf("token cannot be empty")
 	}
 	
-	baseURL, err := url.Parse(c.BaseURL)
-	if err != nil {
-		return "", fmt.Errorf("invalid base URL: %w", err)
-	}
-	
-	botTokenURL := baseURL.ResolveReference(&url.URL{Path: "/api/bot-token"})
+	botTokenURL := fmt.Sprintf("%s%s", c.BaseURL, constants.APIBotTokenPath)
 
-	req, err := http.NewRequest("GET", botTokenURL.String(), nil)
+	req, err := http.NewRequest("GET", botTokenURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Accept", "application/json")
+	req.Header.Set(constants.AuthorizationHeader, constants.BearerPrefix+token)
+	req.Header.Set(constants.AcceptHeader, constants.ContentTypeJSON)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

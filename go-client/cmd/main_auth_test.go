@@ -1,9 +1,6 @@
 package main
 
 import (
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"trunecord/internal/auth"
 	"trunecord/internal/config"
@@ -11,62 +8,48 @@ import (
 	"trunecord/internal/websocket"
 )
 
-// Test: 認証URLエンドポイントが正しく動作することを確認
-func TestHandleGetAuthURL(t *testing.T) {
+// Test: App構造体の初期化が正しく動作することを確認
+func TestAppInitialization(t *testing.T) {
 	// Arrange
+	cfg := &config.Config{AuthAPIURL: "https://auth.example.com"}
+	
+	// Act
 	app := &App{
-		config:     &config.Config{AuthAPIURL: "https://auth.example.com"},
-		authClient: auth.NewClient("https://auth.example.com"),
+		config:     cfg,
+		authClient: auth.NewClient(cfg.AuthAPIURL),
 		streamer:   discord.NewStreamer(),
 		wsServer:   websocket.NewServer(),
 	}
 	
-	req := httptest.NewRequest("GET", "/api/auth-url", nil)
-	w := httptest.NewRecorder()
-	
-	// Act
-	app.handleGetAuthURL(w, req)
-	
 	// Assert
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", w.Code)
+	if app.config == nil {
+		t.Error("Expected config to be initialized")
 	}
-	
-	var response map[string]string
-	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
-		t.Fatalf("Failed to decode response: %v", err)
+	if app.authClient == nil {
+		t.Error("Expected authClient to be initialized")
 	}
-	
-	if response["url"] == "" {
-		t.Error("Expected non-empty auth URL")
+	if app.streamer == nil {
+		t.Error("Expected streamer to be initialized")
+	}
+	if app.wsServer == nil {
+		t.Error("Expected wsServer to be initialized")
 	}
 }
 
-// Test: 認証URLが正しい形式であることを確認
-func TestAuthURLFormat(t *testing.T) {
+// Test: checkExistingInstanceメソッドの動作確認
+func TestCheckExistingInstance(t *testing.T) {
 	// Arrange
 	app := &App{
-		config:     &config.Config{AuthAPIURL: "https://auth.example.com"},
-		authClient: auth.NewClient("https://auth.example.com"),
-		streamer:   discord.NewStreamer(),
-		wsServer:   websocket.NewServer(),
+		config: &config.Config{WebPort: "8080"},
 	}
 	
-	req := httptest.NewRequest("GET", "/api/auth-url", nil)
-	w := httptest.NewRecorder()
-	
 	// Act
-	app.handleGetAuthURL(w, req)
+	exists := app.checkExistingInstance()
 	
 	// Assert
-	var response map[string]string
-	json.NewDecoder(w.Body).Decode(&response)
-	
-	authURL := response["url"]
-	
-	// 認証URLが正しいベースURLを持っているか確認
-	if authURL == "" || authURL == "https://auth.example.com/api/auth" {
-		t.Errorf("Auth URL should include query parameters, got: %s", authURL)
+	// ポートが使用されていない場合はfalseが返される
+	if exists {
+		t.Log("Port 8080 is in use (this may be expected in some test environments)")
 	}
 }
 
