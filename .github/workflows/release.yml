@@ -41,13 +41,13 @@ jobs:
           - os: macos-latest
             platform: darwin
             arch: amd64
-            name: trunecord-darwin-amd64
-            dmg_name: trunecord-amd64.dmg
+            name: trunecord-macos-intel-binary
+            dmg_name: trunecord-macos-intel-installer.dmg
           - os: macos-latest
             platform: darwin
             arch: arm64
-            name: trunecord-darwin-arm64
-            dmg_name: trunecord-arm64.dmg
+            name: trunecord-macos-apple-silicon-binary
+            dmg_name: trunecord-macos-apple-silicon-installer.dmg
           # Windows builds  
           - os: windows-latest
             platform: windows
@@ -348,6 +348,28 @@ jobs:
           asset_name: ${{ matrix.dmg_name }}
           asset_content_type: application/x-apple-diskimage
 
+      - name: Upload macOS Binary
+        if: runner.os == 'macOS'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.release.outputs.upload_url }}
+          asset_path: ./go-client/build/bin/trunecord
+          asset_name: ${{ matrix.name }}
+          asset_content_type: application/octet-stream
+
+      - name: Upload Windows EXE
+        if: runner.os == 'Windows'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.release.outputs.upload_url }}
+          asset_path: ./go-client/build/bin/trunecord.exe
+          asset_name: trunecord-windows-x64.exe
+          asset_content_type: application/x-msdownload
+
       - name: Upload Windows ZIP
         if: runner.os == 'Windows'
         uses: actions/upload-release-asset@v1
@@ -356,7 +378,7 @@ jobs:
         with:
           upload_url: ${{ needs.release.outputs.upload_url }}
           asset_path: ./go-client/dist/trunecord-windows-amd64.zip
-          asset_name: trunecord-windows-amd64.zip
+          asset_name: trunecord-windows-x64-portable.zip
           asset_content_type: application/zip
 
       - name: Upload Linux Archive
@@ -367,7 +389,7 @@ jobs:
         with:
           upload_url: ${{ needs.release.outputs.upload_url }}
           asset_path: ./go-client/dist/trunecord-linux-amd64.tar.gz
-          asset_name: trunecord-linux-amd64.tar.gz
+          asset_name: trunecord-linux-x64-binary.tar.gz
           asset_content_type: application/gzip
 
   build-extension:
