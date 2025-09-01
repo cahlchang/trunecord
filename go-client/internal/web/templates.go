@@ -221,6 +221,15 @@ const indexTemplate = `<!DOCTYPE html>
                                     <option value="">Choose a server...</option>
                                     {{range .Guilds}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
                                 </select>
+                                <div class="mt-2">
+                                    <small class="text-muted">
+                                        Don't see your server? 
+                                        <a href="https://discord.com/api/oauth2/authorize?client_id=1386587888359313500&permissions=3145728&scope=bot" 
+                                           target="_blank" class="text-primary">
+                                            <i class="fab fa-discord"></i> Invite Bot to Server
+                                        </a>
+                                    </small>
+                                </div>
                             </div>
                             
                             <div class="mb-4">
@@ -245,12 +254,18 @@ const indexTemplate = `<!DOCTYPE html>
                         <h5 class="mb-3">
                             <i class="fas fa-info-circle me-2"></i>Instructions
                         </h5>
-                        <ol class="mb-0">
+                        <ol class="mb-3">
                             <li>Select a Discord server from the dropdown</li>
                             <li>Choose a voice channel where you want to stream</li>
                             <li>Click "Connect" to join the voice channel</li>
                             <li>Go to YouTube Music and click the Discord button to start streaming</li>
                         </ol>
+                        <div class="alert alert-info mb-0">
+                            <i class="fas fa-robot me-2"></i>
+                            <strong>First time?</strong> Make sure to 
+                            <a href="https://discord.com/api/oauth2/authorize?client_id=1386587888359313500&permissions=3145728&scope=bot" 
+                               target="_blank" class="alert-link">invite the bot to your server</a> first!
+                        </div>
                     </div>
                 </div>
             </div>
