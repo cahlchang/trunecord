@@ -16,6 +16,7 @@
   transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .discord-stream-button:hover {
@@ -39,7 +40,7 @@
   flex-shrink: 0;
 }
 
-/* Streaming state */
+/* Streaming state - Connected (red stop button) */
 .discord-stream-button.streaming {
   background-color: #f04747;
   animation: pulse 2s infinite;
@@ -47,6 +48,18 @@
 
 .discord-stream-button.streaming:hover {
   background-color: #d84040;
+}
+
+/* Disconnected state - Not streaming (gray) */
+.discord-stream-button.disconnected {
+  background-color: #6c757d;
+  opacity: 0.8;
+}
+
+.discord-stream-button.disconnected:hover {
+  background-color: #5a6268;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
 }
 
 @keyframes pulse {
@@ -82,6 +95,17 @@
 }
 
 .discord-notification.show {
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Top notification for Apple Music */
+.discord-notification.top-notification {
+  bottom: auto;
+  top: 60px;
+  transform: translateX(-50%) translateY(-100px);
+}
+
+.discord-notification.top-notification.show {
   transform: translateX(-50%) translateY(0);
 }
 
@@ -126,72 +150,80 @@ ytmusic-player-bar .middle-controls {
   flex: 1;
 }
 
-/* Disabled mode state */
-.discord-stream-button.disabled-mode {
-  background-color: #6c757d;
-  opacity: 0.8;
+/* Icon display control */
+.discord-stream-button svg {
+  vertical-align: middle;
 }
 
-.discord-stream-button.disabled-mode:hover {
-  background-color: #5a6268;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+.discord-stream-button .stop-icon {
+  /* Stop icon shows only when streaming */
+  display: none;
+}
+
+.discord-stream-button.streaming .discord-icon {
+  display: none;
+}
+
+.discord-stream-button.streaming .stop-icon {
+  display: inline-block !important;
 }
 
 /* Spotify specific styles */
 .discord-stream-button-spotify {
   height: 32px;
-  padding: 0 14px;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-/* Spotify player bar adjustments */
-[data-testid="now-playing-widget"] .discord-stream-button,
-.Root__now-playing-bar .discord-stream-button {
+  padding: 0 12px;
   margin: 0 8px;
+  border-radius: 16px;
+  font-size: 14px;
+  font-weight: 500;
+  align-self: center;
+  flex-shrink: 0;
 }
 
 /* Apple Music specific styles */
 .discord-stream-button-appleMusic {
-  height: 28px;
-  padding: 0 14px;
-  border-radius: 14px;
-  font-size: 13px;
-  font-weight: 500;
-  backdrop-filter: blur(10px);
-  background-color: rgba(88, 101, 242, 0.9);
+  height: 36px !important;
+  padding: 0 20px !important;
+  margin: 0 16px !important;
+  border-radius: 18px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  align-self: center;
+  flex-shrink: 0;
+  display: inline-flex !important;
+  background-color: #5865f2 !important;
+  color: white !important;
+  border: 3px solid rgba(255, 255, 255, 0.4) !important;
+  box-shadow: 0 2px 10px rgba(88, 101, 242, 0.5) !important;
+  transition: all 0.2s ease !important;
 }
 
 .discord-stream-button-appleMusic:hover {
-  background-color: rgba(71, 82, 196, 0.95);
-}
-
-/* Apple Music player adjustments */
-.web-chrome-playback-controls .discord-stream-button,
-amp-playback-controls .discord-stream-button {
-  margin: 0 12px;
-  align-self: center;
+  transform: scale(1.05) !important;
+  box-shadow: 0 4px 16px rgba(88, 101, 242, 0.7) !important;
 }
 
 /* Amazon Music specific styles */
 .discord-stream-button-amazonMusic {
-  height: 36px;
-  padding: 0 16px;
-  border-radius: 18px;
-  font-size: 14px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  height: 40px !important;
+  padding: 0 20px !important;
+  margin: 0 16px !important;
+  border-radius: 20px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  align-self: center;
+  flex-shrink: 0;
+  display: inline-flex !important;
+  background-color: #5865f2 !important;
+  color: white !important;
+  border: 3px solid rgba(255, 255, 255, 0.4) !important;
+  box-shadow: 0 2px 10px rgba(88, 101, 242, 0.5) !important;
+  transition: all 0.2s ease !important;
 }
 
-/* Amazon Music player adjustments */
-#transport .discord-stream-button,
-[data-testid="player-bar"] .discord-stream-button {
-  margin: 0 10px;
-  align-self: center;
+.discord-stream-button-amazonMusic:hover {
+  transform: scale(1.05) !important;
+  box-shadow: 0 4px 16px rgba(88, 101, 242, 0.7) !important;
 }
 
 /* Common service-specific button positioning */

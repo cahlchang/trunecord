@@ -109,5 +109,14 @@
   },
   "pause": {
     "message": "一時停止"
+  },
+  "connected": {
+    "message": "接続中"
+  },
+  "disconnected": {
+    "message": "未接続"
+  },
+  "clickToStop": {
+    "message": "クリックして停止"
   }
 }
