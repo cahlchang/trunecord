@@ -109,3 +109,9 @@ test-audio*
 # Temporary files
 *.tmp
 *.temp
+
+# Local tooling versions
+.node-version
+
+# Local build artifacts
+trunecord-extension.zip
