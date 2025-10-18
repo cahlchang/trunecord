@@ -43,6 +43,7 @@ function createIntegrationAdapter() {
       getMediaStreamId: jest.fn().mockResolvedValue('stream-id'),
     },
     runtime: {
+      id: 'test-extension-id',
       getManifest: jest.fn(() => ({ version: '1.3.2' })),
       getURL: jest.fn((path) => path),
       sendMessage: jest.fn((message) => {
@@ -109,7 +110,7 @@ describe('background-core integration', () => {
 
     const handler = adapter.__listeners.messageListeners[0];
     const socket = adapter.createWebSocket.mock.results[0].value;
-    const offscreenSender = { url: 'chrome-extension://test/offscreen.html' };
+    const offscreenSender = { id: 'test-extension-id', url: 'chrome-extension://test/offscreen.html' };
 
     handler({ type: 'audioData', audio: 'payload' }, offscreenSender, jest.fn());
     expect(socket.send).toHaveBeenCalledWith(JSON.stringify({ type: 'audio', audio: 'payload' }));

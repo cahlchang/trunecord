@@ -476,16 +476,35 @@
       }
     }
 
+    function getExtensionId() {
+      if (adapter?.runtime && typeof adapter.runtime.id === 'string' && adapter.runtime.id.length > 0) {
+        return adapter.runtime.id;
+      }
+      if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.id === 'string' && chrome.runtime.id.length > 0) {
+        return chrome.runtime.id;
+      }
+      return null;
+    }
+
     function isTrustedStreamSender(sender) {
       if (!sender) {
         return false;
       }
-      if (typeof sender.url === 'string' && sender.url.startsWith('chrome-extension://')) {
-        return true;
+
+      const extensionId = getExtensionId();
+      if (extensionId) {
+        if (sender.id && sender.id !== extensionId) {
+          return false;
+        }
+        if (sender.id === extensionId) {
+          return true;
+        }
       }
+
       if (sender.tab && typeof sender.tab.url === 'string' && sender.tab.url.startsWith('https://music.youtube.com/')) {
         return true;
       }
+
       return false;
     }
 

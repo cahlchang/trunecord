@@ -145,6 +145,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return false;
   }
 
+  const extensionId = chrome?.runtime?.id;
+  if (!extensionId || !sender || sender.id !== extensionId) {
+    return false;
+  }
+
   if (request.action === 'startCapture') {
     handleStartCapture(request, sendResponse);
     return true;

@@ -1,6 +1,7 @@
 // Chrome API mock
 global.chrome = {
   runtime: {
+    id: 'mock-extension-id',
     sendMessage: jest.fn(),
     onMessage: {
       addListener: jest.fn()

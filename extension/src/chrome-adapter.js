@@ -75,6 +75,13 @@
         return path;
       },
 
+      get id() {
+        if (chrome.runtime && typeof chrome.runtime.id === 'string' && chrome.runtime.id.length > 0) {
+          return chrome.runtime.id;
+        }
+        return null;
+      },
+
       async sendMessage(message) {
         if (!chrome.runtime || typeof chrome.runtime.sendMessage !== 'function') {
           throw new Error('runtime.sendMessage is not available');

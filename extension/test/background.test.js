@@ -55,6 +55,7 @@ function createMockAdapter() {
       getMediaStreamId: jest.fn().mockImplementation(({ targetTabId }) => Promise.resolve(`stream-${targetTabId}`)),
     },
     runtime: {
+      id: 'test-extension-id',
       getManifest: jest.fn(() => ({ version: '1.3.2' })),
       getURL: jest.fn((path) => path),
       sendMessage: jest.fn(() => Promise.resolve({ success: true })),
