@@ -59,6 +59,9 @@
   "toStartStreaming": {
     "message": "ストリーミングを開始するには："
   },
+  "downloadLatestClient": {
+    "message": "最新のローカルクライアントをGitHubリリースからダウンロード"
+  },
   "openLocalClientApp": {
     "message": "ローカルクライアントアプリを開く"
   },

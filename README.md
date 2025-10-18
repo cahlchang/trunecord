@@ -198,10 +198,14 @@ go build -o trunecord
 ```
 
 ### Creating Extension Package
+When preparing a package for submission to the Chrome Web Store (or any other distribution channel), make sure the archive still contains `manifest.json`. Create the zip while excluding only `node_modules/` and test artifacts as shown below so the manifest remains in the root.
+
 ```bash
 cd extension
-zip -r ../trunecord-extension.zip . -x "node_modules/*" -x "test/*" -x "*.json"
+zip -r ../trunecord-extension.zip . -x "node_modules/*" -x "test/*" -x "coverage/*"
 ```
+
+Before uploading, verify that `manifest.json` is present at the root of the resulting `trunecord-extension.zip`.
 
 ## Contributing
 

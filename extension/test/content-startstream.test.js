@@ -1,12 +1,11 @@
 /**
- * t-wada式TDDによるcontent.jsのstartStream関数テスト
- * RED -> GREEN -> REFACTOR のサイクルを実践
+ * Tests for content.js startStream function using the t-wada style RED → GREEN → REFACTOR cycle.
  */
 
-// Chrome APIモックをロード
+// Load Chrome API mocks
 require('./chrome-mock');
 
-describe('content.js - startStream関数', () => {
+describe('content.js - startStream function', () => {
   let startStream;
   let updateButtonState;
   let showNotification;
@@ -15,7 +14,7 @@ describe('content.js - startStream関数', () => {
   let isStreaming;
   
   beforeEach(() => {
-    // DOMの準備
+    // Prepare DOM for each test
     document.body.innerHTML = '';
     discordButton = document.createElement('button');
     discordButton.id = 'discord-stream-button';
@@ -25,38 +24,38 @@ describe('content.js - startStream関数', () => {
     discordButton.title = '';
     document.body.appendChild(discordButton);
     
-    // Chrome APIモックのリセット
+    // Reset Chrome API mocks
     chrome.runtime.sendMessage.mockClear();
     chrome.runtime.lastError = null;
     
-    // グローバル変数の初期化
+    // Initialize state used by the module under test
     isStreaming = false;
     isSendingAudio = true;
     
-    // モック関数
+    // Helper stubs
     updateButtonState = jest.fn();
     showNotification = jest.fn();
   });
   
-  describe('RED phase - テストを失敗させる', () => {
-    test('startStream関数が存在しない', () => {
-      // RED: startStream関数がまだ定義されていない
+  describe('RED phase - make tests fail first', () => {
+    test('startStream is not defined yet', () => {
+      // RED: startStream has not been implemented
       expect(typeof startStream).toBe('undefined');
     });
     
-    test('isSendingAudioがfalseの時は何もしない', () => {
+    test('does nothing when isSendingAudio is false', () => {
       isSendingAudio = false;
-      // startStream(); // この時点では関数が存在しない
+      // startStream(); // function is not defined yet
       expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
     });
     
-    test('discordButtonが存在しない時は何もしない', () => {
+    test('does nothing when discordButton is null', () => {
       discordButton = null;
       // startStream();
       expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
     });
     
-    test('Chrome拡張機能にstartStreamメッセージを送信しない', () => {
+    test('does not send a startStream message yet', () => {
       // startStream();
       expect(chrome.runtime.sendMessage).not.toHaveBeenCalledWith(
         { action: 'startStream' },
@@ -65,9 +64,9 @@ describe('content.js - startStream関数', () => {
     });
   });
   
-  describe('GREEN phase - 最小限の実装でテストを通す', () => {
+  describe('GREEN phase - minimal implementation to satisfy tests', () => {
     beforeEach(() => {
-      // 最小限の実装
+      // Minimal implementation
       startStream = async function() {
         if (!discordButton || !isSendingAudio) return;
         
@@ -106,25 +105,25 @@ describe('content.js - startStream関数', () => {
       expect(typeof startStream).toBe('function');
     });
     
-    test('isSendingAudioがfalseの時は何もしない', async () => {
+    test('does nothing when isSendingAudio is false', async () => {
       isSendingAudio = false;
       await startStream();
       expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
       expect(discordButton.disabled).toBe(false);
     });
     
-    test('discordButtonが存在しない時は何もしない', async () => {
+    test('does nothing when discordButton is absent', async () => {
       discordButton = null;
       await startStream();
       expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
     });
     
-    test('ストリーミング開始時にボタンを無効化する', async () => {
+    test('disables the button while starting the stream', async () => {
       await startStream();
       expect(discordButton.disabled).toBe(true);
     });
     
-    test('Chrome拡張機能にstartStreamメッセージを送信する', async () => {
+    test('sends startStream message to the extension', async () => {
       await startStream();
       expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
         { action: 'startStream' },
@@ -132,7 +131,7 @@ describe('content.js - startStream関数', () => {
       );
     });
     
-    test('成功時にisStreamingをtrueに設定する', async () => {
+    test('sets isStreaming to true on success', async () => {
       chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
         callback({ success: true });
       });
@@ -143,7 +142,7 @@ describe('content.js - startStream関数', () => {
       expect(discordButton.disabled).toBe(false);
     });
     
-    test('通信エラー時に適切なメッセージを表示する', async () => {
+    test('shows message when communication fails', async () => {
       chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
         chrome.runtime.lastError = { message: 'Extension error' };
         callback();
@@ -154,7 +153,7 @@ describe('content.js - startStream関数', () => {
       expect(discordButton.disabled).toBe(false);
     });
     
-    test('ポップアップエラー時に特別な処理を行う', async () => {
+    test('handles popup-required error specially', async () => {
       chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
         callback({ 
           success: false, 
@@ -171,7 +170,7 @@ describe('content.js - startStream関数', () => {
       expect(discordButton.title).toBe('clickExtensionIcon');
     });
     
-    test('その他のエラー時にエラーメッセージを表示する', async () => {
+    test('shows error message for other failures', async () => {
       chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
         callback({ 
           success: false, 
@@ -185,15 +184,15 @@ describe('content.js - startStream関数', () => {
     });
   });
   
-  describe('REFACTOR phase - コードを整理', () => {
-    // エラータイプの定義
+  describe('REFACTOR phase - organizing code', () => {
+    // Error type definitions
     const ErrorTypes = {
       COMMUNICATION: 'communication',
       POPUP_REQUIRED: 'popup_required',
       GENERAL: 'general'
     };
     
-    // ボタン状態管理
+    // Button state helpers
     const ButtonStateManager = {
       disable(button) {
         if (button) button.disabled = true;
@@ -212,7 +211,7 @@ describe('content.js - startStream関数', () => {
     };
     
     beforeEach(() => {
-      // リファクタリング後の実装
+      // Refactored implementation
       startStream = async function() {
         if (!discordButton || !isSendingAudio) return;
         
@@ -267,7 +266,7 @@ describe('content.js - startStream関数', () => {
       };
     });
     
-    test('リファクタリング後も全機能が正しく動作する', async () => {
+    test('all features still work after refactor', async () => {
       chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
         callback({ success: true });
       });
@@ -279,8 +278,8 @@ describe('content.js - startStream関数', () => {
       expect(discordButton.disabled).toBe(false);
     });
     
-    test('条件チェックが効率的に動作する', async () => {
-      // isSendingAudioとdiscordButtonの両方をチェック
+    test('precondition checks run efficiently', async () => {
+      // Ensure both isSendingAudio and discordButton are validated
       isSendingAudio = false;
       await startStream();
       expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
@@ -291,8 +290,8 @@ describe('content.js - startStream関数', () => {
       expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
     });
     
-    test('エラーハンドリングが統一されている', async () => {
-      // 通信エラー
+    test('error handling is centralized', async () => {
+      // Communication error
       chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
         chrome.runtime.lastError = { message: 'Error' };
         callback();
@@ -300,7 +299,7 @@ describe('content.js - startStream関数', () => {
       await startStream();
       expect(showNotification).toHaveBeenCalledWith('Failed to communicate');
       
-      // ポップアップエラー
+      // Popup-required error
       chrome.runtime.sendMessage.mockClear();
       showNotification.mockClear();
       chrome.runtime.lastError = null;
@@ -313,7 +312,7 @@ describe('content.js - startStream関数', () => {
       expect(discordButton.style.opacity).toBe('0.6');
     });
     
-    test('例外処理が適切に行われる', async () => {
+    test('exceptions are handled gracefully', async () => {
       chrome.runtime.sendMessage.mockImplementation(() => {
         throw new Error('Unexpected error');
       });

@@ -163,14 +163,23 @@ func main() {
 
 func (a *App) checkExistingInstance() bool {
 	// Check if configured web port is already in use
-	conn, err := net.Dial("tcp", constants.LocalhostAddress+":"+a.config.WebPort)
-	if err != nil {
-		// Port is not in use, no existing instance
-		return false
+	addresses := []string{
+		constants.LocalhostIPv4Address,
+		constants.LocalhostIPv6Address,
 	}
-	defer conn.Close()
-	// Port is in use, existing instance found
-	return true
+
+	for _, host := range addresses {
+		conn, err := net.Dial("tcp", net.JoinHostPort(host, a.config.WebPort))
+		if err != nil {
+			continue
+		}
+		conn.Close()
+		// Port is in use, existing instance found
+		return true
+	}
+
+	// Port is not in use, no existing instance
+	return false
 }
 
 func showNotification(title, message string) {

@@ -45,6 +45,7 @@ describe('Offscreen Audio Latency Tests', () => {
     // Mock chrome.runtime
     global.chrome = {
       runtime: {
+        id: 'test-extension-id',
         sendMessage: jest.fn(),
         onMessage: {
           addListener: jest.fn()

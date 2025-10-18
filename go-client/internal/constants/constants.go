@@ -7,6 +7,8 @@ const (
 	DefaultWebPort       = "8080"
 	DefaultWebSocketPort = "18765"
 	LocalhostAddress     = "localhost"
+	LocalhostIPv4Address = "127.0.0.1"
+	LocalhostIPv6Address = "::1"
 )
 
 // Timing constants
@@ -73,7 +75,7 @@ const (
 
 // Extension version
 const (
-	ExpectedExtensionVersion = "1.3.0"
+	ExpectedExtensionVersion = "1.3.3"
 )
 
 // Log paths

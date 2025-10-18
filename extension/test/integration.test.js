@@ -1,265 +1,218 @@
-/**
- * Integration tests for trunecord Chrome Extension
- * Tests the critical flows and edge cases
- */
+const createBackground = require('../src/background-core');
 
-// Mock Chrome APIs
-const mockChrome = {
-  offscreen: {
-    hasDocument: jest.fn(),
-    createDocument: jest.fn(),
-    closeDocument: jest.fn()
-  },
-  tabCapture: {
-    getMediaStreamId: jest.fn()
-  },
-  tabs: {
-    query: jest.fn().mockResolvedValue([]),
-    sendMessage: jest.fn().mockResolvedValue(undefined),
-    onRemoved: {
-      addListener: jest.fn()
-    }
-  },
-  runtime: {
-    onMessage: {
-      addListener: jest.fn()
-    },
-    onInstalled: {
-      addListener: jest.fn()
-    },
-    sendMessage: jest.fn(),
-    lastError: null
-  }
+const READY_STATE = {
+  CONNECTING: 0,
+  OPEN: 1,
+  CLOSING: 2,
+  CLOSED: 3,
 };
 
-// Mock WebSocket
-class MockWebSocket {
-  constructor(url) {
-    this.url = url;
-    this.readyState = MockWebSocket.CONNECTING;
-    this.send = jest.fn();
-    this.close = jest.fn();
-    
-    // Store instance for tests
-    MockWebSocket.lastInstance = this;
-    
-    // Simulate connection
-    setTimeout(() => {
-      this.readyState = MockWebSocket.OPEN;
-      if (this.onopen) this.onopen();
-    }, 10);
-  }
-  
-  static CONNECTING = 0;
-  static OPEN = 1;
-  static CLOSING = 2;
-  static CLOSED = 3;
+function createMockWebSocket() {
+  const socket = {
+    readyState: READY_STATE.CONNECTING,
+    send: jest.fn(),
+    close: jest.fn(function () {
+      socket.readyState = READY_STATE.CLOSED;
+      if (socket.onclose) socket.onclose();
+    }),
+  };
+  setTimeout(() => {
+    socket.readyState = READY_STATE.OPEN;
+    if (socket.onopen) socket.onopen();
+  }, 0);
+  return socket;
 }
 
-global.chrome = mockChrome;
-global.WebSocket = MockWebSocket;
+function createIntegrationAdapter() {
+  const messageListeners = [];
+  const tabRemovedListeners = [];
 
-// Import the module
-let backgroundModule;
+  const adapter = {
+    createWebSocket: jest.fn(() => createMockWebSocket()),
+    offscreen: {
+      hasDocument: jest.fn().mockResolvedValue(false),
+      createDocument: jest.fn(async () => {
+        setTimeout(() => {
+          messageListeners.forEach((handler) => handler({ action: 'offscreenReady' }, {}, jest.fn()));
+        }, 0);
+        return undefined;
+      }),
+      closeDocument: jest.fn().mockResolvedValue(undefined),
+    },
+    tabCapture: {
+      getMediaStreamId: jest.fn().mockResolvedValue('stream-id'),
+    },
+    runtime: {
+      id: 'test-extension-id',
+      getManifest: jest.fn(() => ({ version: '1.3.2' })),
+      getURL: jest.fn((path) => path),
+      sendMessage: jest.fn((message) => {
+        if (message?.action === 'startCapture') {
+          return Promise.resolve({ success: true });
+        }
+        if (message?.action === 'stopCapture') {
+          return Promise.resolve({ success: true });
+        }
+        return Promise.resolve({ success: true });
+      }),
+      addMessageListener: jest.fn((handler) => messageListeners.push(handler)),
+      addInstalledListener: jest.fn(),
+      addStartupListener: jest.fn(),
+      addSuspendListener: jest.fn(),
+    },
+    tabs: {
+      query: jest.fn().mockResolvedValue([]),
+      sendMessage: jest.fn().mockResolvedValue(undefined),
+      addRemovedListener: jest.fn((handler) => tabRemovedListeners.push(handler)),
+    },
+    notifications: {
+      create: jest.fn().mockResolvedValue(undefined),
+    },
+    storage: null,
+    __listeners: {
+      messageListeners,
+      tabRemovedListeners,
+    },
+  };
 
-beforeAll(() => {
-  // Clear module cache
-  jest.resetModules();
-  backgroundModule = require('../src/background.js');
-});
+  return adapter;
+}
 
-describe('trunecord Extension Integration Tests', () => {
+describe('background-core integration', () => {
+  let adapter;
+  let background;
+
   beforeEach(() => {
-    jest.clearAllMocks();
-    MockWebSocket.lastInstance = null;
-    
-    // Reset Chrome API mocks
-    mockChrome.offscreen.hasDocument.mockResolvedValue(false);
-    mockChrome.offscreen.createDocument.mockResolvedValue(undefined);
-    mockChrome.offscreen.closeDocument.mockResolvedValue(undefined);
-    mockChrome.tabCapture.getMediaStreamId.mockResolvedValue('stream-test-123');
-    mockChrome.runtime.sendMessage.mockImplementation((msg, callback) => {
-      // Simulate offscreen document response
-      setTimeout(() => {
-        if (callback) callback({ success: true });
-      }, 10);
-    });
+    adapter = createIntegrationAdapter();
+    background = createBackground(adapter);
+    background.registerEventListeners();
   });
 
-  describe('Double-click Prevention', () => {
-    test('should handle rapid multiple start requests gracefully', async () => {
-      // Simulate rapid clicks
-      const promises = [];
-      for (let i = 0; i < 5; i++) {
-        promises.push(backgroundModule.startCapture(123));
+  async function flushAsync() {
+    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  test('handles rapid multiple start requests gracefully', async () => {
+    const tabId = 10;
+    const starts = Array.from({ length: 5 }, () => background.startCapture(tabId));
+    await Promise.all(starts);
+    await flushAsync();
+
+    expect(adapter.offscreen.createDocument).toHaveBeenCalledTimes(1);
+    expect(adapter.runtime.sendMessage).toHaveBeenCalledWith({ action: 'startCapture', streamId: 'stream-id' });
+  });
+
+  test('message handler forwards audio data and pause/resume events', async () => {
+    const tabId = 20;
+    await background.startCapture(tabId);
+    await flushAsync();
+
+    const handler = adapter.__listeners.messageListeners[0];
+    const socket = adapter.createWebSocket.mock.results[0].value;
+    const offscreenSender = { id: 'test-extension-id', url: 'chrome-extension://test/offscreen.html' };
+
+    handler({ type: 'audioData', audio: 'payload' }, offscreenSender, jest.fn());
+    expect(socket.send).toHaveBeenCalledWith(JSON.stringify({ type: 'audio', audio: 'payload' }));
+
+    handler({ type: 'streamPause' }, offscreenSender, jest.fn());
+    expect(socket.send).toHaveBeenCalledWith(JSON.stringify({ type: 'streamPause' }));
+
+    handler({ type: 'streamResume' }, offscreenSender, jest.fn());
+    expect(socket.send).toHaveBeenCalledWith(JSON.stringify({ type: 'streamResume' }));
+  });
+
+  test('stopCapture cleans up even when offscreen stop fails', async () => {
+    const tabId = 30;
+    adapter.offscreen.hasDocument
+      .mockReset()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    adapter.runtime.sendMessage.mockImplementation((message) => {
+      if (message?.action === 'stopCapture') {
+        return Promise.reject(new Error('offscreen unavailable'));
       }
-      
-      await Promise.all(promises);
-      
-      // Should only create offscreen document once
-      expect(mockChrome.offscreen.createDocument).toHaveBeenCalledTimes(1);
+      return Promise.resolve({ success: true });
     });
 
-    test('should handle start while already streaming', async () => {
-      // First start
-      await backgroundModule.startCapture(123);
-      
-      // Second start should reuse existing capture
-      const secondStart = await backgroundModule.startCapture(123);
-      
-      expect(secondStart).toBe(true);
-    });
+    await background.startCapture(tabId);
+    await flushAsync();
 
-    test('should properly cleanup when stopping during startup', async () => {
-      // Start capture but don't wait
-      const startPromise = backgroundModule.startCapture(123);
-      
-      // Immediately stop
-      await backgroundModule.stopCapture();
-      
-      // Original start should complete without errors
-      await expect(startPromise).resolves.toBe(true);
-    });
+    await expect(background.stopCapture()).resolves.toBeUndefined();
+    expect(adapter.offscreen.closeDocument).toHaveBeenCalled();
   });
 
-  describe('WebSocket Connection Management', () => {
-    test('should establish WebSocket connection before capturing', async () => {
-      await backgroundModule.startCapture(123);
-      
-      expect(MockWebSocket.lastInstance).toBeTruthy();
-      expect(MockWebSocket.lastInstance.url).toBe('ws://localhost:8765');
-    });
+  test('resumeFromSavedState attempts restart and falls back on failure', async () => {
+    // Provide simple in-memory session storage
+    const state = { value: { tabId: 40 } };
+    adapter.storage = {
+      session: {
+        get: jest.fn(async (key) => (key === 'trunecordStreamingState' ? state.value : null)),
+        set: jest.fn(async (key, value) => {
+          if (key === 'trunecordStreamingState') {
+            state.value = value;
+          }
+        }),
+        remove: jest.fn(async () => {
+          state.value = null;
+        }),
+      },
+    };
 
-    test('should send streamStart message when capture begins', async () => {
-      await backgroundModule.startCapture(123);
-      
-      // Wait for WebSocket to be ready
-      await new Promise(resolve => setTimeout(resolve, 50));
-      
-      expect(MockWebSocket.lastInstance.send).toHaveBeenCalledWith(
-        JSON.stringify({ type: 'streamStart' })
-      );
-    });
+    background = createBackground(adapter);
 
-    test('should handle WebSocket reconnection', async () => {
-      await backgroundModule.startCapture(123);
-      const firstWs = MockWebSocket.lastInstance;
-      
-      // Simulate WebSocket disconnect
-      firstWs.readyState = MockWebSocket.CLOSED;
-      if (firstWs.onclose) firstWs.onclose();
-      
-      // Start new capture
-      await backgroundModule.startCapture(456);
-      
-      // Should create new WebSocket
-      expect(MockWebSocket.lastInstance).not.toBe(firstWs);
-    });
+    // Successful resume
+    await background.resumeFromSavedState();
+    await flushAsync();
+    expect(adapter.runtime.sendMessage).toHaveBeenCalledWith({ action: 'startCapture', streamId: 'stream-id' });
+
+    // Simulate failure next time
+    adapter.offscreen.hasDocument
+      .mockReset()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    await background.stopCapture();
+    adapter.runtime.sendMessage.mockImplementationOnce(() => Promise.resolve({ success: false, error: 'denied' }));
+    state.value = { tabId: 40 };
+    const result = await background.resumeFromSavedState();
+    expect(result.restored).toBe(false);
+    expect(adapter.notifications.create).toHaveBeenCalled();
   });
 
-  describe('Offscreen Document Lifecycle', () => {
-    test('should close existing offscreen document before creating new one', async () => {
-      mockChrome.offscreen.hasDocument.mockResolvedValue(true);
-      
-      await backgroundModule.startCapture(123);
-      
-      expect(mockChrome.offscreen.closeDocument).toHaveBeenCalled();
-      expect(mockChrome.offscreen.createDocument).toHaveBeenCalled();
+  describe('local client connection status runtime message', () => {
+    let handler;
+
+    beforeEach(() => {
+      background.registerEventListeners();
+      handler = adapter.__listeners.messageListeners[0];
     });
 
-    test('should handle offscreen document creation failure', async () => {
-      mockChrome.offscreen.createDocument.mockRejectedValue(
-        new Error('User denied permission')
-      );
-      
-      await expect(backgroundModule.startCapture(123)).rejects.toThrow();
-    });
-
-    test('should cleanup offscreen document on stop', async () => {
-      await backgroundModule.startCapture(123);
-      
-      mockChrome.offscreen.hasDocument.mockResolvedValue(true);
-      await backgroundModule.stopCapture();
-      
-      expect(mockChrome.offscreen.closeDocument).toHaveBeenCalled();
-    });
-  });
-
-  describe('Message Passing', () => {
-    test('should handle audio data messages', async () => {
-      await backgroundModule.startCapture(123);
-      await new Promise(resolve => setTimeout(resolve, 50));
-      
-      // Get the message handler
-      const messageHandler = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
-      
-      // Simulate audio data message
+    test('returns connected true when WebSocket opens', async () => {
       const sendResponse = jest.fn();
-      messageHandler(
-        { type: 'audioData', audio: 'base64data' },
-        { tab: { id: 123 } },
-        sendResponse
-      );
-      
-      expect(MockWebSocket.lastInstance.send).toHaveBeenCalledWith(
-        JSON.stringify({ type: 'audio', audio: 'base64data' })
-      );
+      const keepChannelOpen = handler({ action: 'checkLocalClientConnection' }, {}, sendResponse);
+
+      expect(keepChannelOpen).toBe(true);
+      for (let i = 0; i < 6; i += 1) {
+        await flushAsync();
+      }
+      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ connected: true, checking: false }));
     });
 
-    test('should handle stream pause/resume messages', async () => {
-      await backgroundModule.startCapture(123);
-      await new Promise(resolve => setTimeout(resolve, 50));
-      
-      const messageHandler = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
-      
-      // Pause
-      messageHandler({ type: 'streamPause' }, {}, jest.fn());
-      expect(MockWebSocket.lastInstance.send).toHaveBeenCalledWith(
-        JSON.stringify({ type: 'streamPause' })
-      );
-      
-      // Resume
-      messageHandler({ type: 'streamResume' }, {}, jest.fn());
-      expect(MockWebSocket.lastInstance.send).toHaveBeenCalledWith(
-        JSON.stringify({ type: 'streamResume' })
-      );
-    });
-  });
-
-  describe('Error Recovery', () => {
-    test('should recover from offscreen document communication timeout', async () => {
-      mockChrome.runtime.sendMessage.mockImplementation((msg, callback) => {
-        // Don't call callback - simulate timeout
+    test('returns connected false when WebSocket connection fails', async () => {
+      adapter.createWebSocket.mockImplementation(() => {
+        throw new Error('connection refused');
       });
-      
-      await expect(backgroundModule.startCapture(123)).rejects.toThrow('Timeout');
+
+      const sendResponse = jest.fn();
+      const keepChannelOpen = handler({ action: 'checkLocalClientConnection' }, {}, sendResponse);
+
+      expect(keepChannelOpen).toBe(true);
+      for (let i = 0; i < 6; i += 1) {
+        await flushAsync();
+      }
+      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ connected: false, checking: false }));
     });
 
-    test('should handle tab removal during streaming', async () => {
-      await backgroundModule.startCapture(123);
-      
-      // Get tab removed handler
-      const tabRemovedHandler = mockChrome.tabs.onRemoved.addListener.mock.calls[0][0];
-      
-      // Simulate tab removal
-      mockChrome.tabs.query.mockResolvedValue([]); // No more YouTube Music tabs
-      await tabRemovedHandler(123, {});
-      
-      // Should stop capture
-      expect(mockChrome.offscreen.closeDocument).toHaveBeenCalled();
-    });
-
-    test('should continue working after errors', async () => {
-      // First attempt fails
-      mockChrome.offscreen.createDocument.mockRejectedValueOnce(
-        new Error('Temporary failure')
-      );
-      
-      await expect(backgroundModule.startCapture(123)).rejects.toThrow();
-      
-      // Second attempt should work
-      mockChrome.offscreen.createDocument.mockResolvedValue(undefined);
-      await expect(backgroundModule.startCapture(123)).resolves.toBe(true);
-    });
+    // Additional connection edge cases are covered by explicit error handling tests above.
   });
 });

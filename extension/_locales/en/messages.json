@@ -59,6 +59,9 @@
   "toStartStreaming": {
     "message": "To start streaming:"
   },
+  "downloadLatestClient": {
+    "message": "Download the latest local client (GitHub Releases)"
+  },
   "openLocalClientApp": {
     "message": "Open the local client app"
   },

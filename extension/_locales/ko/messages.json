@@ -31,5 +31,8 @@
   },
   "connectionLost": {
     "message": "로컬 클라이언트와의 연결이 끊어졌습니다. 스트리밍이 중지되었습니다."
+  },
+  "downloadLatestClient": {
+    "message": "최신 로컬 클라이언트 다운로드 (GitHub 릴리스)"
   }
 }
