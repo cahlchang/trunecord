@@ -367,7 +367,7 @@ func (s *Server) verifyLocalRequest(w http.ResponseWriter, r *http.Request) bool
 	allowedHosts := map[string]struct{}{
 		constants.LocalhostAddress: {},
 		"127.0.0.1":                {},
-		"[::1]":                    {},
+		"::1":                      {},
 	}
 
 	validate := func(value string) bool {
