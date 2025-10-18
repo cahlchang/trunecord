@@ -449,24 +449,44 @@
         }
       }
 
+      await broadcastToMusicTabs(
+        {
+          action: 'streamingStateChanged',
+          isStreaming: false,
+        },
+        'Error notifying tabs about streaming state change'
+      );
+
+      currentStreamingTabId = null;
+      await stateManager.clear();
+    }
+
+    async function broadcastToMusicTabs(message, errorMessage = 'Error broadcasting to tabs') {
       try {
         const tabs = await adapter.tabs.query({ url: 'https://music.youtube.com/*' });
         await Promise.all(
           tabs.map((tab) =>
             adapter.tabs
-              .sendMessage(tab.id, {
-                action: 'streamingStateChanged',
-                isStreaming: false,
-              })
+              .sendMessage(tab.id, message)
               .catch(() => {})
           )
         );
       } catch (error) {
-        console.error('Error notifying tabs:', error);
+        console.error(`${errorMessage}:`, error);
       }
+    }
 
-      currentStreamingTabId = null;
-      await stateManager.clear();
+    function isTrustedStreamSender(sender) {
+      if (!sender) {
+        return false;
+      }
+      if (typeof sender.url === 'string' && sender.url.startsWith('chrome-extension://')) {
+        return true;
+      }
+      if (sender.tab && typeof sender.tab.url === 'string' && sender.tab.url.startsWith('https://music.youtube.com/')) {
+        return true;
+      }
+      return false;
     }
 
     function handleWebSocketMessage(data) {
@@ -510,39 +530,23 @@
     }
 
     async function notifyConnectionLost() {
-      try {
-        const tabs = await adapter.tabs.query({ url: 'https://music.youtube.com/*' });
-        await Promise.all(
-          tabs.map((tab) =>
-            adapter.tabs
-              .sendMessage(tab.id, {
-                action: 'connectionLost',
-                isStreaming: false,
-              })
-              .catch(() => {})
-          )
-        );
-      } catch (error) {
-        console.error('Error notifying tabs about connection loss:', error);
-      }
+      await broadcastToMusicTabs(
+        {
+          action: 'connectionLost',
+          isStreaming: false,
+        },
+        'Error notifying tabs about connection loss'
+      );
     }
 
     async function notifyWaitingModeStop() {
-      try {
-        const tabs = await adapter.tabs.query({ url: 'https://music.youtube.com/*' });
-        await Promise.all(
-          tabs.map((tab) =>
-            adapter.tabs
-              .sendMessage(tab.id, {
-                action: 'waitingModeStop',
-                isStreaming: false,
-              })
-              .catch(() => {})
-          )
-        );
-      } catch (error) {
-        console.error('Error notifying tabs about waiting mode stop:', error);
-      }
+      await broadcastToMusicTabs(
+        {
+          action: 'waitingModeStop',
+          isStreaming: false,
+        },
+        'Error notifying tabs about waiting mode stop'
+      );
     }
 
     function handleRuntimeMessage(request, sender, sendResponse) {
@@ -575,36 +579,44 @@
         case 'getStreamStatus':
           sendResponse({ isStreaming });
           return true;
-        default:
-          if (request.type === 'audioData') {
-            if (ws && ws.readyState === READY_STATE_OPEN) {
-              try {
-                ws.send(
-                  JSON.stringify({
-                    type: 'audio',
-                    audio: request.audio,
-                  })
-                );
-              } catch (error) {
-                console.error('Failed to forward audio chunk:', error);
+        default: {
+          if (typeof request.type === 'string') {
+            if (!isTrustedStreamSender(sender)) {
+              console.warn('Ignoring message from untrusted sender');
+              return false;
+            }
+
+            if (request.type === 'audioData') {
+              if (ws && ws.readyState === READY_STATE_OPEN) {
+                try {
+                  ws.send(
+                    JSON.stringify({
+                      type: 'audio',
+                      audio: request.audio,
+                    })
+                  );
+                } catch (error) {
+                  console.error('Failed to forward audio chunk:', error);
+                }
               }
+              return false;
             }
-            return false;
-          }
-          if (request.type === 'streamPause') {
-            if (ws && ws.readyState === READY_STATE_OPEN) {
-              ws.send(JSON.stringify({ type: 'streamPause' }));
+            if (request.type === 'streamPause') {
+              if (ws && ws.readyState === READY_STATE_OPEN) {
+                ws.send(JSON.stringify({ type: 'streamPause' }));
+              }
+              return false;
             }
-            return false;
-          }
-          if (request.type === 'streamResume') {
-            if (ws && ws.readyState === READY_STATE_OPEN) {
-              ws.send(JSON.stringify({ type: 'streamResume' }));
+            if (request.type === 'streamResume') {
+              if (ws && ws.readyState === READY_STATE_OPEN) {
+                ws.send(JSON.stringify({ type: 'streamResume' }));
+              }
+              return false;
             }
-            return false;
           }
           sendResponse({ success: false, error: 'Unknown action' });
           return true;
+        }
       }
     }
 
@@ -612,15 +624,7 @@
       if (!isStreaming || tabId !== currentStreamingTabId) {
         return;
       }
-      adapter.tabs
-        .query({ url: 'https://music.youtube.com/*' })
-        .then((tabs) => {
-          if (!tabs || tabs.length === 0) {
-            return stopCapture();
-          }
-          return null;
-        })
-        .catch((error) => console.error('Failed to handle tab removal:', error));
+      stopCapture().catch((error) => console.error('Failed to stop after tab removal:', error));
     }
 
     async function resumeFromSavedState() {

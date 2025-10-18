@@ -103,21 +103,21 @@ describe('background-core integration', () => {
   });
 
   test('message handler forwards audio data and pause/resume events', async () => {
-    background.registerEventListeners();
     const tabId = 20;
     await background.startCapture(tabId);
     await flushAsync();
 
     const handler = adapter.__listeners.messageListeners[0];
     const socket = adapter.createWebSocket.mock.results[0].value;
+    const offscreenSender = { url: 'chrome-extension://test/offscreen.html' };
 
-    handler({ type: 'audioData', audio: 'payload' }, {}, jest.fn());
+    handler({ type: 'audioData', audio: 'payload' }, offscreenSender, jest.fn());
     expect(socket.send).toHaveBeenCalledWith(JSON.stringify({ type: 'audio', audio: 'payload' }));
 
-    handler({ type: 'streamPause' }, {}, jest.fn());
+    handler({ type: 'streamPause' }, offscreenSender, jest.fn());
     expect(socket.send).toHaveBeenCalledWith(JSON.stringify({ type: 'streamPause' }));
 
-    handler({ type: 'streamResume' }, {}, jest.fn());
+    handler({ type: 'streamResume' }, offscreenSender, jest.fn());
     expect(socket.send).toHaveBeenCalledWith(JSON.stringify({ type: 'streamResume' }));
   });
 

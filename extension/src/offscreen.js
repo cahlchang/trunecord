@@ -2,7 +2,55 @@ let audioContext = null;
 let audioStream = null;
 let audioWorkletNode = null;
 let source = null;
+let silentSink = null;
 let isCapturing = false;
+
+async function cleanupAudio() {
+  if (audioWorkletNode) {
+    try {
+      audioWorkletNode.disconnect();
+    } catch (_error) {
+      // ignore cleanup errors
+    }
+    audioWorkletNode = null;
+  }
+
+  if (silentSink) {
+    try {
+      silentSink.disconnect();
+    } catch (_error) {
+      // ignore cleanup errors
+    }
+    silentSink = null;
+  }
+
+  if (source) {
+    try {
+      source.disconnect();
+    } catch (_error) {
+      // ignore cleanup errors
+    }
+    source = null;
+  }
+
+  if (audioContext) {
+    try {
+      await audioContext.close();
+    } catch (_error) {
+      // ignore cleanup errors
+    }
+    audioContext = null;
+  }
+
+  if (audioStream) {
+    try {
+      audioStream.getTracks().forEach((track) => track.stop());
+    } catch (_error) {
+      // ignore cleanup errors
+    }
+    audioStream = null;
+  }
+}
 
 async function handleStartCapture(request, sendResponse) {
   if (isCapturing) {
@@ -14,25 +62,7 @@ async function handleStartCapture(request, sendResponse) {
   try {
     isCapturing = true;
 
-    if (audioWorkletNode) {
-      audioWorkletNode.disconnect();
-      audioWorkletNode = null;
-    }
-
-    if (source) {
-      source.disconnect();
-      source = null;
-    }
-
-    if (audioContext) {
-      await audioContext.close();
-      audioContext = null;
-    }
-
-    if (audioStream) {
-      audioStream.getTracks().forEach((track) => track.stop());
-      audioStream = null;
-    }
+    await cleanupAudio();
 
     audioStream = await navigator.mediaDevices.getUserMedia({
       audio: {
@@ -86,12 +116,16 @@ async function handleStartCapture(request, sendResponse) {
     };
 
     source.connect(audioWorkletNode);
-    audioWorkletNode.connect(audioContext.destination);
+    silentSink = audioContext.createGain();
+    silentSink.gain.value = 0;
+    audioWorkletNode.connect(silentSink);
+    silentSink.connect(audioContext.destination);
 
     sendResponse({ success: true });
     console.log('Audio capture started successfully');
   } catch (error) {
     console.error('Failed to start capture:', error);
+    await cleanupAudio();
     isCapturing = false;
     sendResponse({ success: false, error: error.message });
   }
@@ -100,25 +134,7 @@ async function handleStartCapture(request, sendResponse) {
 async function handleStopCapture(sendResponse) {
   isCapturing = false;
 
-  if (audioWorkletNode) {
-    audioWorkletNode.disconnect();
-    audioWorkletNode = null;
-  }
-
-  if (source) {
-    source.disconnect();
-    source = null;
-  }
-
-  if (audioContext) {
-    await audioContext.close();
-    audioContext = null;
-  }
-
-  if (audioStream) {
-    audioStream.getTracks().forEach((track) => track.stop());
-    audioStream = null;
-  }
+  await cleanupAudio();
 
   console.log('Audio capture stopped');
   sendResponse({ success: true });

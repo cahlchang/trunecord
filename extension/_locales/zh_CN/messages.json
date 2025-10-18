@@ -33,6 +33,6 @@
     "message": "与本地客户端的连接丢失。流式传输已停止。"
   },
   "downloadLatestClient": {
-    "message": "Download the latest local client (GitHub Releases)"
+    "message": "下载最新的本地客户端（GitHub Releases）"
   }
 }
