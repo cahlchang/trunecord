@@ -45,6 +45,8 @@ Just click the link above and click "Add to Chrome" - it's that easy!
 5. Click **"Load unpacked"** and select the extracted extension folder
 6. You should see the Trunecord icon appear in your Chrome toolbar
 
+> ℹ️ Ensure the extension reports version **1.3.3** in `chrome://extensions/`. The Go client performs a handshake and will refuse older builds.
+
 ### Step 3: Start the Local Client
 
 #### Option A: Download Pre-built Binary (Recommended)
@@ -68,6 +70,8 @@ Just click the link above and click "Add to Chrome" - it's that easy!
    # Windows
    trunecord-windows-amd64.exe
    ```
+
+> ℹ️ Use the latest release (v1.3.3 or newer) so that the extension and client stay in sync.
 
 #### Option B: Build from Source (For Developers)
 
@@ -95,11 +99,18 @@ Listening on :8080
 
 ### Step 5: Start Streaming!
 
-1. Open [YouTube Music](https://music.youtube.com) in Chrome
-2. Play any song or playlist
-3. Look for the **Discord streaming button** next to the playback time in the player bar
-4. Click the button to start streaming (it will turn red when active)
-5. The bot will join your selected voice channel and start playing the audio
+1. Open your favourite supported service (YouTube Music, Spotify, Apple Music, or Amazon Music) in Chrome
+2. Start playback of any song or playlist
+3. Look for the **Discord streaming button** near the playback controls (it appears inline with the player UI)
+4. Click the button to start streaming — it will turn red while streaming is active
+5. The bot joins the configured voice channel and mirrors the audio in real time
+
+## Supported Music Services
+
+- YouTube Music (music.youtube.com)
+- Spotify Web Player (open.spotify.com)
+- Apple Music on the Web (music.apple.com)
+- Amazon Music (music.amazon.co.jp / .com)
 
 ## How It Works
 
@@ -123,12 +134,20 @@ Listening on :8080
 
 ## Features
 
-- 🎵 Stream high-quality audio from YouTube Music to Discord
-- 🔴 Visual streaming indicator in the YouTube Music player
+- 🎵 Stream high-quality audio from YouTube Music, Spotify, Apple Music, and Amazon Music straight to Discord
+- 🔴 Visual streaming indicator embedded in each supported player UI
 - 🔄 Automatic reconnection handling
 - 🔒 All audio processing happens locally (privacy-focused)
 - ⚡ Low-latency streaming
-- 🎮 Simple one-click interface
+- 🌍 Multi-language extension UI (English, 日本語, 한국어, 简体中文)
+- 🎮 Simple one-click interface with automatic session resume after browser restarts
+
+## Version Compatibility
+
+- Chrome extension: **v1.3.3**
+- Local Go client: **v1.3.3** or newer
+
+Launching mismatched versions triggers a “version mismatch” warning in the popup and refuses to stream until both components are upgraded.
 
 ## Architecture
 
