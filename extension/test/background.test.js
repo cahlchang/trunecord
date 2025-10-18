@@ -1,180 +1,152 @@
-// Mock Chrome APIs
-const mockChrome = {
-  offscreen: {
-    hasDocument: jest.fn(),
-    createDocument: jest.fn(),
-    closeDocument: jest.fn()
-  },
-  tabCapture: {
-    getMediaStreamId: jest.fn()
-  },
-  tabs: {
-    query: jest.fn(),
-    sendMessage: jest.fn(),
-    onRemoved: {
-      addListener: jest.fn()
-    }
-  },
-  runtime: {
-    onMessage: {
-      addListener: jest.fn()
-    },
-    onInstalled: {
-      addListener: jest.fn()
-    },
-    sendMessage: jest.fn(),
-    lastError: null
-  }
+const createBackground = require('../src/background-core');
+
+const READY_STATE = {
+  CONNECTING: 0,
+  OPEN: 1,
+  CLOSING: 2,
+  CLOSED: 3,
 };
 
-global.chrome = mockChrome;
-global.WebSocket = jest.fn();
-
-// Mock tabs.query to return empty array by default
-mockChrome.tabs.query.mockResolvedValue([]);
-
-// Import after mocking
-const { startCapture, stopCapture, connectToLocalClient } = require('../src/background.js');
-
-describe('Background Script', () => {
-  beforeEach(() => {
-    // Reset all mocks
-    jest.clearAllMocks();
-    
-    // Reset WebSocket mock
-    global.WebSocket.mockImplementation(function(url) {
-      this.readyState = WebSocket.CONNECTING;
-      this.send = jest.fn();
-      this.close = jest.fn();
-      
-      // Simulate connection after a delay
-      setTimeout(() => {
-        this.readyState = WebSocket.OPEN;
-        if (this.onopen) this.onopen();
-      }, 10);
-      
-      return this;
-    });
-    global.WebSocket.OPEN = 1;
-    global.WebSocket.CONNECTING = 0;
+function createMockWebSocketFactory() {
+  const sockets = [];
+  const factory = jest.fn((url) => {
+    const socket = {
+      url,
+      readyState: READY_STATE.CONNECTING,
+      send: jest.fn(),
+      close: jest.fn(() => {
+        socket.readyState = READY_STATE.CLOSED;
+        if (socket.onclose) socket.onclose();
+      }),
+    };
+    sockets.push(socket);
+    setTimeout(() => {
+      socket.readyState = READY_STATE.OPEN;
+      if (socket.onopen) socket.onopen();
+    }, 0);
+    return socket;
   });
+  factory.getLast = () => sockets[sockets.length - 1] || null;
+  return factory;
+}
 
-  describe('Offscreen Document Management', () => {
-    test('should create offscreen document if not exists', async () => {
-      mockChrome.offscreen.hasDocument.mockResolvedValue(false);
-      mockChrome.offscreen.createDocument.mockResolvedValue(undefined);
-      mockChrome.tabCapture.getMediaStreamId.mockImplementation(({ targetTabId }) => 
-        Promise.resolve(`stream-${targetTabId}`)
-      );
-      mockChrome.runtime.sendMessage.mockImplementation((msg, callback) => {
-        callback({ success: true });
-      });
+function createMockAdapter() {
+  const messageListeners = [];
+  const tabRemovedListeners = [];
+  const installedListeners = [];
+  const startupListeners = [];
+  const suspendListeners = [];
 
-      await startCapture(123);
+  const createWebSocket = createMockWebSocketFactory();
 
-      expect(mockChrome.offscreen.hasDocument).toHaveBeenCalled();
-      expect(mockChrome.offscreen.createDocument).toHaveBeenCalledWith({
-        url: 'src/offscreen.html',
-        reasons: ['USER_MEDIA'],
-        justification: 'Capturing audio from tab'
-      });
-    });
-
-    test('should close existing offscreen document before creating new one', async () => {
-      mockChrome.offscreen.hasDocument.mockResolvedValue(true);
-      mockChrome.offscreen.closeDocument.mockResolvedValue(undefined);
-      mockChrome.offscreen.createDocument.mockResolvedValue(undefined);
-      mockChrome.tabCapture.getMediaStreamId.mockResolvedValue('stream-123');
-      mockChrome.runtime.sendMessage.mockImplementation((msg, callback) => {
-        callback({ success: true });
-      });
-
-      await startCapture(123);
-
-      expect(mockChrome.offscreen.closeDocument).toHaveBeenCalled();
-      expect(mockChrome.offscreen.createDocument).toHaveBeenCalled();
-    });
-
-    test('should handle multiple capture requests gracefully', async () => {
-      mockChrome.offscreen.hasDocument.mockResolvedValue(false);
-      mockChrome.offscreen.createDocument.mockResolvedValue(undefined);
-      mockChrome.tabCapture.getMediaStreamId.mockResolvedValue('stream-123');
-      mockChrome.runtime.sendMessage.mockImplementation((msg, callback) => {
-        callback({ success: true });
-      });
-
-      // Start multiple captures
-      const promise1 = startCapture(123);
-      const promise2 = startCapture(456);
-
-      await Promise.all([promise1, promise2]);
-
-      // Should stop first capture before starting second
-      expect(mockChrome.offscreen.createDocument).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  describe('WebSocket Connection', () => {
-    test('should connect to local client on port 8765', async () => {
-      await connectToLocalClient();
-      
-      expect(global.WebSocket).toHaveBeenCalledWith('ws://localhost:8765');
-    });
-
-    test('should not create multiple WebSocket connections', async () => {
-      const promise1 = connectToLocalClient();
-      const promise2 = connectToLocalClient();
-      
-      await Promise.all([promise1, promise2]);
-      
-      expect(global.WebSocket).toHaveBeenCalledTimes(1);
-    });
-
-    test('should send streamStart message when capture starts', async () => {
-      mockChrome.offscreen.hasDocument.mockResolvedValue(false);
-      mockChrome.offscreen.createDocument.mockResolvedValue(undefined);
-      mockChrome.tabCapture.getMediaStreamId.mockResolvedValue('stream-123');
-      mockChrome.runtime.sendMessage.mockImplementation((msg, callback) => {
-        callback({ success: true });
-      });
-
-      const ws = await connectToLocalClient();
-      await new Promise(resolve => setTimeout(resolve, 20)); // Wait for connection
-      
-      await startCapture(123);
-
-      expect(ws.send).toHaveBeenCalledWith(JSON.stringify({ type: 'streamStart' }));
-    });
-  });
-
-  describe('Error Handling', () => {
-    test('should handle offscreen document creation failure', async () => {
-      mockChrome.offscreen.hasDocument.mockResolvedValue(false);
-      mockChrome.offscreen.createDocument.mockRejectedValue(new Error('Creation failed'));
-      
-      await expect(startCapture(123)).rejects.toThrow();
-    });
-
-    test('should handle WebSocket connection failure', async () => {
-      global.WebSocket.mockImplementation(function() {
+  const adapter = {
+    createWebSocket,
+    offscreen: {
+      hasDocument: jest.fn().mockResolvedValue(false),
+      createDocument: jest.fn(async () => {
         setTimeout(() => {
-          if (this.onerror) this.onerror(new Error('Connection failed'));
-        }, 10);
-        return this;
-      });
+          messageListeners.forEach((handler) => handler({ action: 'offscreenReady' }, {}, jest.fn()));
+        }, 0);
+        return undefined;
+      }),
+      closeDocument: jest.fn().mockResolvedValue(undefined),
+    },
+    tabCapture: {
+      getMediaStreamId: jest.fn().mockImplementation(({ targetTabId }) => Promise.resolve(`stream-${targetTabId}`)),
+    },
+    runtime: {
+      getManifest: jest.fn(() => ({ version: '1.3.2' })),
+      getURL: jest.fn((path) => path),
+      sendMessage: jest.fn(() => Promise.resolve({ success: true })),
+      addMessageListener: jest.fn((handler) => messageListeners.push(handler)),
+      addInstalledListener: jest.fn((handler) => installedListeners.push(handler)),
+      addStartupListener: jest.fn((handler) => startupListeners.push(handler)),
+      addSuspendListener: jest.fn((handler) => suspendListeners.push(handler)),
+    },
+    tabs: {
+      query: jest.fn().mockResolvedValue([]),
+      sendMessage: jest.fn().mockResolvedValue(undefined),
+      addRemovedListener: jest.fn((handler) => tabRemovedListeners.push(handler)),
+    },
+    notifications: {
+      create: jest.fn().mockResolvedValue(undefined),
+    },
+    storage: null,
+    __listeners: {
+      messageListeners,
+      tabRemovedListeners,
+      installedListeners,
+      startupListeners,
+      suspendListeners,
+    },
+  };
 
-      await expect(connectToLocalClient()).rejects.toThrow('Failed to connect to local client');
-    });
+  return adapter;
+}
 
-    test('should cleanup on tab close', async () => {
-      mockChrome.tabs.query.mockResolvedValue([]);
-      mockChrome.offscreen.hasDocument.mockResolvedValue(true);
-      
-      // Simulate tab removal
-      const removeListener = mockChrome.tabs.onRemoved.addListener.mock.calls[0][0];
-      await removeListener(123, {});
+describe('background-core', () => {
+  let adapter;
+  let background;
 
-      expect(mockChrome.tabs.query).toHaveBeenCalledWith({ url: "https://music.youtube.com/*" });
-    });
+  beforeEach(() => {
+    adapter = createMockAdapter();
+    background = createBackground(adapter);
+  });
+
+  async function flushAsync() {
+    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  test('startCapture creates offscreen document and sends streamStart', async () => {
+    const tabId = 123;
+
+    await background.startCapture(tabId);
+    await flushAsync();
+
+    expect(adapter.offscreen.createDocument).toHaveBeenCalledTimes(1);
+    expect(adapter.tabCapture.getMediaStreamId).toHaveBeenCalledWith({ targetTabId: tabId, consumerTabId: null });
+    const socket = adapter.createWebSocket.getLast();
+    expect(socket.send).toHaveBeenCalledWith(JSON.stringify({ type: 'streamStart' }));
+    expect(adapter.tabs.sendMessage).toHaveBeenCalledWith(tabId, { action: 'streamingStateChanged', isStreaming: true });
+  });
+
+  test('startCapture restarts capture when called twice sequentially', async () => {
+    const tabId = 456;
+
+    await background.startCapture(tabId);
+    await flushAsync();
+
+    adapter.runtime.sendMessage.mockResolvedValueOnce({ success: true });
+    await background.startCapture(tabId);
+    await flushAsync();
+
+    expect(adapter.offscreen.createDocument).toHaveBeenCalledTimes(2);
+  });
+
+  test('stopCapture notifies tabs and clears state', async () => {
+    const tabId = 789;
+    adapter.tabs.query.mockResolvedValue([{ id: tabId }]);
+
+    await background.startCapture(tabId);
+    await flushAsync();
+
+    adapter.offscreen.hasDocument.mockResolvedValueOnce(true);
+    await background.stopCapture();
+    expect(adapter.offscreen.closeDocument).toHaveBeenCalled();
+    expect(adapter.tabs.sendMessage).toHaveBeenCalledWith(tabId, { action: 'streamingStateChanged', isStreaming: false });
+  });
+
+  test('startCapture propagates errors when offscreen creation fails', async () => {
+    adapter.offscreen.createDocument.mockRejectedValueOnce(new Error('Creation failed'));
+
+    await expect(background.startCapture(101)).rejects.toThrow('Creation failed');
+  });
+
+  test('registerEventListeners attaches runtime and tab listeners', () => {
+    background.registerEventListeners();
+
+    expect(adapter.runtime.addMessageListener).toHaveBeenCalled();
+    expect(adapter.tabs.addRemovedListener).toHaveBeenCalled();
   });
 });

@@ -73,7 +73,7 @@ const (
 
 // Extension version
 const (
-	ExpectedExtensionVersion = "1.3.0"
+	ExpectedExtensionVersion = "1.3.2"
 )
 
 // Log paths

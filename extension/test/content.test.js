@@ -1,12 +1,11 @@
 /**
- * t-wada式TDDによるcontent.jsのテスト
- * RED -> GREEN -> REFACTOR のサイクルを実践
+ * Tests for content.js using the t-wada style RED → GREEN → REFACTOR cycle.
  */
 
-// Chrome APIモックをロード
+// Load Chrome API mocks
 require('./chrome-mock');
 
-describe('content.js - toggleStream関数', () => {
+describe('content.js - toggleStream function', () => {
   let toggleStream;
   let updateButtonState;
   let showNotification;
@@ -15,51 +14,51 @@ describe('content.js - toggleStream関数', () => {
   let isSendingAudio;
   
   beforeEach(() => {
-    // DOMの準備
+    // Prepare DOM for each test
     document.body.innerHTML = '';
     discordButton = document.createElement('button');
     discordButton.id = 'discord-stream-button';
     discordButton.innerHTML = '<span>Discord</span>';
     document.body.appendChild(discordButton);
     
-    // Chrome APIモックのリセット
+    // Reset Chrome API mocks
     chrome.runtime.sendMessage.mockClear();
     chrome.storage.local.set.mockClear();
     
-    // グローバル変数の初期化
+    // Initialize state used by toggleStream
     isStreaming = false;
     isSendingAudio = true;
   });
-  
-  describe('RED phase - テストを失敗させる', () => {
-    test('toggleStream関数が存在しない', () => {
-      // RED: toggleStream関数がまだ定義されていない
+
+  describe('RED phase - make tests fail first', () => {
+    test('toggleStream is not defined yet', () => {
+      // RED: toggleStream has not been implemented
       expect(typeof toggleStream).toBe('undefined');
     });
     
-    test('音声送信モードの切り替えができない', () => {
-      // RED: isSendingAudioの切り替えロジックがまだない
+    test('audio sending mode cannot be toggled yet', () => {
+      // RED: no logic exists to flip isSendingAudio
       const initialState = isSendingAudio;
-      // toggleStream(); // この時点では関数が存在しない
-      expect(isSendingAudio).toBe(initialState); // 変化していない
+      // toggleStream(); // function not yet defined
+      expect(isSendingAudio).toBe(initialState); // remains unchanged
     });
     
-    test('Chrome Storage APIに設定が保存されない', () => {
-      // RED: Chrome Storage APIへの保存処理がまだない
+    test('settings are not persisted to Chrome Storage', () => {
+      // RED: persistence has not been implemented
       // toggleStream();
       expect(chrome.storage.local.set).not.toHaveBeenCalled();
     });
     
-    test('ボタンのテキストが更新されない', () => {
-      // RED: updateButtonState関数がまだない
+    test('button text is not updated', () => {
+      // RED: updateButtonState has not been implemented
       const span = discordButton.querySelector('span');
-      expect(span.textContent).toBe('Discord'); // 初期状態のまま
+      expect(span.textContent).toBe('Discord'); // remains initial label
     });
   });
-  
-  describe('GREEN phase - 最小限の実装でテストを通す', () => {
+
+  describe('GREEN phase - minimal implementation to satisfy tests', () => {
     beforeEach(() => {
-      // 最小限の実装
+      // Minimal implementation
       toggleStream = function() {
         if (!discordButton) return;
         
@@ -102,25 +101,25 @@ describe('content.js - toggleStream関数', () => {
       expect(isSendingAudio).toBe(true);
     });
     
-    test('Chrome Storage APIに設定が保存される', () => {
+    test('settings are saved to Chrome Storage', () => {
       toggleStream();
       expect(chrome.storage.local.set).toHaveBeenCalledWith({ isSendingAudio: false });
     });
     
-    test('ボタンのテキストが「Normal」に更新される', () => {
+    test('button text updates to "Normal"', () => {
       toggleStream();
       const span = discordButton.querySelector('span');
       expect(span.textContent).toBe('Normal');
     });
     
-    test('ボタンのテキストが「Discord」に更新される', () => {
+    test('button text updates to "Discord"', () => {
       isSendingAudio = false;
       toggleStream();
       const span = discordButton.querySelector('span');
       expect(span.textContent).toBe('Discord');
     });
     
-    test('通知が表示される', () => {
+    test('notifications are displayed', () => {
       toggleStream();
       expect(showNotification).toHaveBeenCalledWith('Audio will play normally');
       
@@ -129,9 +128,9 @@ describe('content.js - toggleStream関数', () => {
     });
   });
   
-  describe('REFACTOR phase - コードを整理', () => {
+  describe('REFACTOR phase - organizing code', () => {
     beforeEach(() => {
-      // リファクタリング後の実装
+      // Refactored implementation
       const AudioStreamingMode = {
         DISCORD: 'discord',
         NORMAL: 'normal'
@@ -177,20 +176,20 @@ describe('content.js - toggleStream関数', () => {
       };
     });
     
-    test('リファクタリング後も全機能が正しく動作する', () => {
-      // 音声送信モードの切り替え
+    test('all behaviors still work after refactor', () => {
+      // Toggle audio sending mode
       expect(isSendingAudio).toBe(true);
       toggleStream();
       expect(isSendingAudio).toBe(false);
       
-      // ボタンテキストの更新
+      // Button label updates
       const span = discordButton.querySelector('span');
       expect(span.textContent).toBe('Normal');
       
-      // Chrome Storage APIへの保存
+      // Chrome Storage persistence
       expect(chrome.storage.local.set).toHaveBeenCalledWith({ isSendingAudio: false });
       
-      // 通知の表示
+      // Notification is shown
       expect(showNotification).toHaveBeenCalledWith('Audio will play normally');
     });
     

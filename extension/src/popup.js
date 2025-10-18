@@ -3,6 +3,7 @@ function initializeLocalization() {
   document.getElementById('popup-title').textContent = chrome.i18n.getMessage('popupTitle');
   document.getElementById('status-text').textContent = chrome.i18n.getMessage('checkingConnection');
   document.getElementById('to-start-streaming').textContent = chrome.i18n.getMessage('toStartStreaming');
+  document.getElementById('download-client').textContent = chrome.i18n.getMessage('downloadLatestClient') || 'Download the latest local client (GitHub Releases)';
   document.getElementById('open-client').textContent = chrome.i18n.getMessage('openLocalClientApp');
   document.getElementById('step-2').textContent = chrome.i18n.getMessage('goToMusicService') || chrome.i18n.getMessage('goToYouTubeMusic');
   document.getElementById('step-3').textContent = chrome.i18n.getMessage('clickDiscordButton');
@@ -12,33 +13,39 @@ function initializeLocalization() {
 async function checkConnection() {
   const statusIndicator = document.getElementById('status-indicator');
   const statusText = document.getElementById('status-text');
-  
+
   try {
-    // Try to connect to local client
-    const ws = new WebSocket('ws://localhost:8765');
-    
-    ws.onopen = () => {
+    const response = await chrome.runtime.sendMessage({ action: 'checkLocalClientConnection' });
+    if (response && response.connected) {
       statusIndicator.classList.add('connected');
       statusText.textContent = chrome.i18n.getMessage('localClientConnected');
-      ws.close();
-    };
-    
-    ws.onerror = () => {
-      statusIndicator.classList.remove('connected');
-      statusText.textContent = chrome.i18n.getMessage('localClientNotRunning');
-    };
-    
-    ws.onclose = () => {
-      if (!statusIndicator.classList.contains('connected')) {
-        statusIndicator.classList.remove('connected');
-        statusText.textContent = chrome.i18n.getMessage('localClientNotRunning');
-      }
-    };
+      return;
+    }
+
+    statusIndicator.classList.remove('connected');
+    if (response && response.checking) {
+      statusText.textContent = chrome.i18n.getMessage('checkingConnection');
+      return;
+    }
+    statusText.textContent = chrome.i18n.getMessage('localClientNotRunning');
+    if (response && response.error) {
+      console.warn('Local client connection error:', response.error);
+    }
   } catch (error) {
     statusIndicator.classList.remove('connected');
     statusText.textContent = chrome.i18n.getMessage('localClientNotRunning');
+
+    if (error && error.message) {
+      console.error('Failed to determine local client status:', error);
+    }
   }
 }
+
+// Download latest client link
+document.getElementById('download-client').addEventListener('click', (e) => {
+  e.preventDefault();
+  chrome.tabs.create({ url: 'https://github.com/cahlchang/trunecord/releases/latest' });
+});
 
 // Open local client link
 document.getElementById('open-client').addEventListener('click', (e) => {

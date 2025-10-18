@@ -1,9 +1,9 @@
 /**
- * t-wada式TDDによるbackground.jsのWebSocket接続テスト
- * RED -> GREEN -> REFACTOR のサイクルを実践
+ * WebSocket connection tests for background.js inspired by t-wada style TDD.
+ * Demonstrates the RED -> GREEN -> REFACTOR cycle.
  */
 
-// Chrome APIモックをロード
+// Load Chrome API mocks
 require('./chrome-mock');
 
 describe('background.js - WebSocket接続', () => {
@@ -11,10 +11,10 @@ describe('background.js - WebSocket接続', () => {
   let ws;
   
   beforeEach(() => {
-    // タイマーのモック
+    // Mock timers
     jest.useFakeTimers();
     
-    // WebSocketモックのリセット
+    // Reset WebSocket mock implementation
     global.WebSocket.mockClear();
     global.WebSocket.mockImplementation(() => {
       const ws = {
@@ -26,7 +26,7 @@ describe('background.js - WebSocket接続', () => {
         close: jest.fn()
       };
       
-      // 接続成功をシミュレート
+      // Simulate a successful connection
       setTimeout(() => {
         ws.readyState = 1;
         if (ws.onopen) ws.onopen();
@@ -38,31 +38,31 @@ describe('background.js - WebSocket接続', () => {
   });
   
   afterEach(() => {
-    // タイマーをクリア
+    // Restore timers after each test
     jest.clearAllTimers();
     jest.useRealTimers();
   });
   
   describe('RED phase - テストを失敗させる', () => {
     test('connectToLocalClient関数が存在しない', () => {
-      // RED: connectToLocalClient関数がまだ定義されていない
+      // RED: connectToLocalClient is not defined yet
       expect(typeof connectToLocalClient).toBe('undefined');
     });
     
     test('WebSocketが作成されない', () => {
-      // RED: WebSocket接続のロジックがまだない
-      // connectToLocalClient(); // この時点では関数が存在しない
+      // RED: WebSocket connection logic has not been implemented yet
+      // connectToLocalClient(); // the function does not exist at this point
       expect(global.WebSocket).not.toHaveBeenCalled();
     });
     
     test('接続成功のPromiseが返されない', async () => {
-      // RED: Promise処理がまだない
+      // RED: promise handling has not been implemented yet
       // const result = await connectToLocalClient();
       // expect(result).toBeUndefined();
     });
     
     test('接続エラーが処理されない', async () => {
-      // RED: エラーハンドリングがまだない
+      // RED: error handling has not been implemented yet
       global.WebSocket.mockImplementationOnce(() => {
         const ws = {
           readyState: 0,
@@ -83,21 +83,21 @@ describe('background.js - WebSocket接続', () => {
     let wsInstance = null;
     
     beforeEach(() => {
-      // 各テストでwsInstanceをリセット
+      // Reset wsInstance for each test
       wsInstance = null;
       
-      // モックをクリア
+      // Clear previous mock call history
       jest.clearAllMocks();
       
-      // 最小限の実装
+      // Minimal implementation to satisfy tests
       connectToLocalClient = function() {
         if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
           return Promise.resolve();
         }
-        
+
         return new Promise((resolve, reject) => {
-          wsInstance = new WebSocket('ws://localhost:8765');
-          ws = wsInstance; // テスト用にグローバル変数にも保存
+          wsInstance = new WebSocket('ws://127.0.0.1:8765');
+          ws = wsInstance; // keep a reference for assertions
           
           wsInstance.onopen = () => {
             resolve();
@@ -116,37 +116,37 @@ describe('background.js - WebSocket接続', () => {
     
     test('WebSocketが正しいURLで作成される', () => {
       connectToLocalClient();
-      expect(global.WebSocket).toHaveBeenCalledWith('ws://localhost:8765');
+      expect(global.WebSocket).toHaveBeenCalledWith('ws://127.0.0.1:8765');
     });
     
     test('既に接続されている場合は新しい接続を作らない', async () => {
-      // 最初の接続
+      // First connection attempt
       const firstPromise = connectToLocalClient();
       
-      // タイマーを進めて接続を完了させる
+      // Complete the connection by advancing timers
       jest.advanceTimersByTime(10);
-      
+
       await firstPromise;
-      
-      // WebSocketが1回呼ばれたことを確認
+
+      // Ensure WebSocket constructor is called only once
       expect(global.WebSocket).toHaveBeenCalledTimes(1);
       
-      // wsInstanceが接続済みであることを確認
+      // Confirm the connection is open
       expect(wsInstance).not.toBeNull();
       expect(wsInstance.readyState).toBe(WebSocket.OPEN);
       
-      // 2回目の呼び出し（既に接続済み）
+      // Second call should reuse the existing connection
       const secondPromise = connectToLocalClient();
       await secondPromise;
       
-      // WebSocketが新たに作成されていないことを確認
+      // Ensure no new connection is created
       expect(global.WebSocket).toHaveBeenCalledTimes(1);
     });
     
     test('接続成功時にPromiseがresolveされる', async () => {
       const promise = connectToLocalClient();
-      
-      // タイマーを進める
+
+      // Advance the timers to complete the connection
       jest.advanceTimersByTime(10);
       
       await expect(promise).resolves.toBeUndefined();
@@ -167,8 +167,8 @@ describe('background.js - WebSocket接続', () => {
       });
       
       const promise = connectToLocalClient();
-      
-      // タイマーを進めてエラーを発生させる
+
+      // Advance timers to trigger the failure
       jest.advanceTimersByTime(10);
       
       await expect(promise).rejects.toThrow('Failed to connect to local client');
@@ -178,8 +178,8 @@ describe('background.js - WebSocket接続', () => {
       expect(ws).toBeNull();
       
       const promise = connectToLocalClient();
-      
-      // タイマーを進める
+
+      // Advance timers to complete the connection
       jest.advanceTimersByTime(10);
       
       await promise;
@@ -192,13 +192,13 @@ describe('background.js - WebSocket接続', () => {
   describe('REFACTOR phase - コードを整理', () => {
     let wsInstance = null;
     
-    // WebSocket設定
+    // WebSocket configuration used in the refactored implementation
     const WS_CONFIG = {
-      URL: 'ws://localhost:8765',
+      URL: 'ws://127.0.0.1:8765',
       RECONNECT_DELAY: 5000
     };
     
-    // WebSocket状態管理
+    // WebSocket state management helper
     const WebSocketManager = {
       instance: null,
       
@@ -219,10 +219,10 @@ describe('background.js - WebSocket接続', () => {
     };
     
     beforeEach(() => {
-      // 各テストでリセット
+      // Reset manager before each test
       WebSocketManager.clearInstance();
       
-      // リファクタリング後の実装
+      // Refactored implementation
       connectToLocalClient = function() {
         if (WebSocketManager.isConnected()) {
           return Promise.resolve();
@@ -295,19 +295,19 @@ describe('background.js - WebSocket接続', () => {
       
       expect(WebSocketManager.isConnected()).toBe(true);
       
-      // 接続をクローズ
+      // Close the connection
       wsInstance.onclose();
       
       expect(WebSocketManager.isConnected()).toBe(false);
     });
     
     test('複数回の接続試行でも安定して動作する', async () => {
-      // 1回目の接続
+      // First connection attempt
       const promise1 = connectToLocalClient();
       jest.advanceTimersByTime(10);
       await promise1;
       
-      // 既に接続済みの場合
+      // Subsequent call should reuse the connection
       const promise2 = connectToLocalClient();
       await promise2;
       
