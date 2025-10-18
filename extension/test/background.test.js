@@ -56,7 +56,7 @@ function createMockAdapter() {
     },
     runtime: {
       id: 'test-extension-id',
-		getManifest: jest.fn(() => ({ version: '1.3.3' })),
+		getManifest: jest.fn(() => ({ version: '1.3.4' })),
       getURL: jest.fn((path) => path),
       sendMessage: jest.fn(() => Promise.resolve({ success: true })),
       addMessageListener: jest.fn((handler) => messageListeners.push(handler)),

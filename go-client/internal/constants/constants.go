@@ -57,6 +57,7 @@ const (
 	APIGuildsPath     = "/api/guilds"
 	APIVerifyPath     = "/api/verify"
 	APIBotTokenPath   = "/api/bot-token"
+	APIVersionPath    = "/api/version"
 	APIChannelsPath   = "/channels"
 	StaticFilesPrefix = "/static/"
 )
@@ -75,7 +76,8 @@ const (
 
 // Extension version
 const (
-	ExpectedExtensionVersion = "1.3.3"
+	ExpectedExtensionVersion = "1.3.4"
+	ApplicationVersion       = "1.3.4"
 )
 
 // Log paths
