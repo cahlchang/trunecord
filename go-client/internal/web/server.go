@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"trunecord/internal/auth"
 	"trunecord/internal/browser"
+	"trunecord/internal/config"
 	"trunecord/internal/constants"
 )
 
@@ -22,6 +24,7 @@ type Server struct {
 	streamer      DiscordStreamer
 	wsServer      WebSocketServer
 	browserOpener *browser.Opener
+	config        *config.Config
 }
 
 type DiscordStreamer interface {
@@ -49,13 +52,14 @@ type PageData struct {
 	Streaming bool
 }
 
-func NewServer(port string, authClient *auth.Client, streamer DiscordStreamer, wsServer WebSocketServer) *Server {
+func NewServer(port string, authClient *auth.Client, streamer DiscordStreamer, wsServer WebSocketServer, cfg *config.Config) *Server {
 	return &Server{
 		port:          port,
 		authClient:    authClient,
 		streamer:      streamer,
 		wsServer:      wsServer,
 		browserOpener: browser.NewOpener(),
+		config:        cfg,
 	}
 }
 
@@ -83,15 +87,17 @@ func (s *Server) Start() error {
 
 	log.Printf("Web server starting on port %s", s.port)
 
+	listenAddr := net.JoinHostPort(constants.LocalhostAddress, s.port)
+
 	// Auto-open browser
 	go s.openBrowser()
 
-	return http.ListenAndServe(":"+s.port, mux)
+	return http.ListenAndServe(listenAddr, mux)
 }
 
 func (s *Server) openBrowser() {
 	url := fmt.Sprintf("http://%s:%s", constants.LocalhostAddress, s.port)
-	
+
 	err := s.browserOpener.Open(url)
 	if err != nil {
 		log.Printf("Failed to open browser: %v", err)
@@ -189,6 +195,10 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !s.verifyLocalRequest(w, r) {
+		return
+	}
+
 	var req struct {
 		GuildID   string `json:"guildId"`
 		ChannelID string `json:"channelId"`
@@ -205,17 +215,20 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get Discord bot token from auth server
-	botToken, err := s.authClient.GetBotToken(s.tokenData.Token)
-	if err != nil {
-		log.Printf("Failed to get bot token: %v", err)
-		response := map[string]interface{}{
-			"success": false,
-			"message": "Failed to get bot token from server",
+	botToken := strings.TrimSpace(s.getBotToken())
+	if botToken == "" {
+		fetchedToken, err := s.authClient.GetBotToken(s.tokenData.Token)
+		if err != nil {
+			log.Printf("Failed to get bot token: %v", err)
+			response := map[string]interface{}{
+				"success": false,
+				"message": "Failed to get bot token from server",
+			}
+			w.Header().Set("Content-Type", constants.ContentTypeJSON)
+			json.NewEncoder(w).Encode(response)
+			return
 		}
-		w.Header().Set("Content-Type", constants.ContentTypeJSON)
-		json.NewEncoder(w).Encode(response)
-		return
+		botToken = fetchedToken
 	}
 
 	// Connect to Discord voice channel
@@ -245,6 +258,10 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleDisconnect(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !s.verifyLocalRequest(w, r) {
 		return
 	}
 
@@ -285,12 +302,12 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	discordConnected := s.streamer.IsConnected()
 
 	status := map[string]interface{}{
-		"connected":        discordConnected,                           // Discord voice connection
-		"chromeConnected":  chromeConnected,                           // Chrome extension WebSocket connection
-		"streaming":        chromeStreaming && discordConnected,       // Both must be true for actual streaming
+		"connected":        discordConnected,                    // Discord voice connection
+		"chromeConnected":  chromeConnected,                     // Chrome extension WebSocket connection
+		"streaming":        chromeStreaming && discordConnected, // Both must be true for actual streaming
 		"authenticated":    s.tokenData != nil,
-		"discordConnected": discordConnected,                          // Explicit Discord status
-		"wsConnected":      chromeConnected,                           // Explicit WebSocket status
+		"discordConnected": discordConnected, // Explicit Discord status
+		"wsConnected":      chromeConnected,  // Explicit WebSocket status
 	}
 
 	if s.tokenData != nil {
@@ -309,6 +326,10 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleChannels(w http.ResponseWriter, r *http.Request) {
 	if s.tokenData == nil {
 		http.Error(w, "Not authenticated", http.StatusUnauthorized)
+		return
+	}
+
+	if !s.verifyLocalRequest(w, r) {
 		return
 	}
 
@@ -333,6 +354,51 @@ func (s *Server) handleChannels(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", constants.ContentTypeJSON)
 	json.NewEncoder(w).Encode(response)
+}
+
+func (s *Server) getBotToken() string {
+	if s.config == nil {
+		return ""
+	}
+	return s.config.DiscordBotToken
+}
+
+func (s *Server) verifyLocalRequest(w http.ResponseWriter, r *http.Request) bool {
+	allowedHosts := map[string]struct{}{
+		constants.LocalhostAddress: {},
+		"127.0.0.1":                {},
+		"[::1]":                    {},
+	}
+
+	validate := func(value string) bool {
+		if value == "" {
+			return true
+		}
+		parsed, err := url.Parse(value)
+		if err != nil {
+			return false
+		}
+		host := parsed.Hostname()
+		port := parsed.Port()
+		if port == "" {
+			port = s.port
+		}
+		_, ok := allowedHosts[host]
+		return ok && port == s.port
+	}
+
+	origin := r.Header.Get("Origin")
+	if origin != "" && !validate(origin) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return false
+	}
+
+	referer := r.Header.Get("Referer")
+	if origin == "" && referer != "" && !validate(referer) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return false
+	}
+	return true
 }
 
 func (s *Server) loadInlineTemplates() {

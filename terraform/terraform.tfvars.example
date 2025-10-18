@@ -13,3 +13,6 @@ frontend_url = "http://localhost:3000"
 
 # JWT Secret for token signing
 jwt_secret = "YOUR_SECURE_JWT_SECRET_KEY"
+
+# Optional: set to "false" only when the bot token is supplied to clients through another secure mechanism
+# enable_bot_token_endpoint = "true"

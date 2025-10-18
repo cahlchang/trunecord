@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"trunecord/internal/auth"
+	"trunecord/internal/config"
 )
 
 // Mock WebSocket server
@@ -15,6 +16,10 @@ type mockWebSocketServer struct {
 
 func (m *mockWebSocketServer) IsStreaming() bool {
 	return m.streaming
+}
+
+func (m *mockWebSocketServer) IsConnected() bool {
+	return true
 }
 
 // Mock Discord streamer
@@ -61,7 +66,8 @@ func TestNewServer(t *testing.T) {
 	streamer := &mockDiscordStreamer{}
 	wsServer := &mockWebSocketServer{}
 
-	server := NewServer(port, authClient, streamer, wsServer)
+	cfg := &config.Config{}
+	server := NewServer(port, authClient, streamer, wsServer, cfg)
 
 	if server == nil {
 		t.Fatal("NewServer() returned nil")
@@ -81,7 +87,8 @@ func TestServer_HandleStatus(t *testing.T) {
 		channelID: "channel456",
 	}
 	wsServer := &mockWebSocketServer{streaming: true}
-	server := NewServer("48766", authClient, streamer, wsServer)
+	cfg := &config.Config{}
+	server := NewServer("48766", authClient, streamer, wsServer, cfg)
 
 	req, err := http.NewRequest("GET", "/api/status", nil)
 	if err != nil {
