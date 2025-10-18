@@ -13,7 +13,7 @@ const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps, Postman, or same-origin)
     if (!origin) return callback(null, true);
-    
+
     // Allow localhost for development
     if (origin.startsWith('http://localhost:') || 
         origin.startsWith('https://localhost:') ||
@@ -21,15 +21,19 @@ const corsOptions = {
         origin.startsWith('https://127.0.0.1:')) {
       return callback(null, true);
     }
-    
+
     // Allow configured frontend URL
-    if (process.env.FRONTEND_URL && 
-        (origin === process.env.FRONTEND_URL || 
-         process.env.FRONTEND_URL === '*')) {
-      return callback(null, true);
+    if (process.env.FRONTEND_URL) {
+      if (process.env.FRONTEND_URL === '*') {
+        console.error('[CORS] FRONTEND_URL="*" is not permitted for security reasons');
+        return callback(new Error('Not allowed by CORS'));
+      }
+      if (origin === process.env.FRONTEND_URL) {
+        return callback(null, true);
+      }
     }
-    
-    
+
+
     // Reject other origins
     callback(new Error('Not allowed by CORS'));
   },

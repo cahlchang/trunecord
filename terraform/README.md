@@ -35,6 +35,7 @@ Edit `terraform.tfvars` with your actual values:
 - `discord_bot_token`: Your Discord bot token
 - `jwt_secret`: A secure random string for JWT signing
 - `frontend_url`: The URL where your Electron app will run (for OAuth redirects)
+- `enable_bot_token_endpoint` (optional): Leave at `"true"` for the default client flow; set to `"false"` only if the bot token is delivered through another secure channel
 
 ### 3. Initialize Terraform
 
@@ -100,3 +101,4 @@ The Lambda function uses the following environment variables:
 - `REDIRECT_URI` (automatically configured)
 - `FRONTEND_URL`
 - `JWT_SECRET`
+- `ENABLE_BOT_TOKEN_ENDPOINT`

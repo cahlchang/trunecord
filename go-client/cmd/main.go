@@ -57,7 +57,7 @@ func (a *App) startAudioStreaming() {
 	go func() {
 		ticker := time.NewTicker(constants.WebSocketTickerInterval)
 		defer ticker.Stop()
-		
+
 		for range ticker.C {
 			if a.streamer.IsConnected() && !a.streamer.IsStreaming() {
 				// Start streaming with WebSocket audio buffer
@@ -74,14 +74,13 @@ func (a *App) startAudioStreaming() {
 
 func (a *App) startWebServer() {
 	// Start web server for OAuth callback and web UI
-	webServer := web.NewServer(a.config.WebPort, a.authClient, a.streamer, a.wsServer)
+	webServer := web.NewServer(a.config.WebPort, a.authClient, a.streamer, a.wsServer, a.config)
 	go func() {
 		if err := webServer.Start(); err != nil {
 			log.Fatalf("Web server error: %v", err)
 		}
 	}()
 }
-
 
 func (a *App) printStatus() {
 	// Print status
@@ -112,10 +111,10 @@ func main() {
 	// Set up logging to file when running as .app bundle
 	homeDir, _ := os.UserHomeDir()
 	logPath := filepath.Join(homeDir, constants.MacOSLogDirectory, constants.LogFileName)
-	
+
 	// Create log directory if it doesn't exist
 	os.MkdirAll(filepath.Dir(logPath), constants.LogDirPermission)
-	
+
 	// Open log file
 	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, constants.LogFilePermission)
 	if err == nil {
@@ -124,7 +123,7 @@ func main() {
 		log.SetOutput(multiWriter)
 		defer logFile.Close()
 	}
-	
+
 	// Load configuration first
 	cfg, err := config.Load()
 	if err != nil {
@@ -135,14 +134,14 @@ func main() {
 	tempApp := &App{
 		config: cfg,
 	}
-	
+
 	// Check for existing instance
 	if tempApp.checkExistingInstance() {
 		log.Printf("%s is already running", constants.ApplicationName)
 		showNotification(constants.AppDisplayName, "Application is already running")
 		os.Exit(0)
 	}
-	
+
 	fmt.Println("")
 	fmt.Println("=====================================")
 	fmt.Printf("     %s\n", constants.ApplicationTitle)
@@ -205,5 +204,3 @@ func showNotification(title, message string) {
 		log.Printf("NOTIFICATION - %s: %s", title, message)
 	}
 }
-
-

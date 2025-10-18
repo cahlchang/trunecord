@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -11,7 +12,6 @@ import (
 	"github.com/gorilla/websocket"
 	"trunecord/internal/constants"
 )
-
 
 type Server struct {
 	upgrader         websocket.Upgrader
@@ -63,7 +63,7 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	s.clientMutex.Lock()
 	s.clients[conn] = true
 	s.clientMutex.Unlock()
-	
+
 	defer func() {
 		s.clientMutex.Lock()
 		delete(s.clients, conn)
@@ -98,22 +98,22 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			// Check extension version
 			if msg.Version != "" {
 				if msg.Version != constants.ExpectedExtensionVersion {
-					warningMsg := fmt.Sprintf("⚠️ Chrome拡張機能のバージョンが不一致です\n期待: v%s\n実際: v%s\n\n拡張機能を更新してください", 
+					warningMsg := fmt.Sprintf("⚠️ Chrome extension version mismatch\nExpected: v%s\nActual: v%s\n\nPlease update the extension.",
 						constants.ExpectedExtensionVersion, msg.Version)
 					log.Printf("\n%s\n", warningMsg)
-					
+
 					// Send warning to extension
 					warningResponse := map[string]string{
-						"type": constants.MessageTypeVersionMismatch,
-						"message": warningMsg,
+						"type":            constants.MessageTypeVersionMismatch,
+						"message":         warningMsg,
 						"expectedVersion": constants.ExpectedExtensionVersion,
-						"actualVersion": msg.Version,
+						"actualVersion":   msg.Version,
 					}
 					if err := conn.WriteJSON(warningResponse); err != nil {
 						log.Printf("Failed to send version warning: %v", err)
 					}
 				} else {
-					log.Printf("✅ Chrome拡張機能バージョン確認: v%s", msg.Version)
+					log.Printf("✅ Chrome extension version verified: v%s", msg.Version)
 				}
 			}
 		case constants.MessageTypeAudio:
@@ -181,8 +181,9 @@ func (s *Server) GetAudioChannel() <-chan []byte {
 func (s *Server) Start(port string) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.HandleWebSocket)
-	log.Printf("WebSocket server starting on port %s", port)
-	return http.ListenAndServe(":"+port, mux)
+	listenAddr := net.JoinHostPort(constants.LocalhostAddress, port)
+	log.Printf("WebSocket server starting on %s", listenAddr)
+	return http.ListenAndServe(listenAddr, mux)
 }
 
 func (s *Server) setStreaming(streaming bool) {
