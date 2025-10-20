@@ -44,7 +44,7 @@ function createIntegrationAdapter() {
     },
     runtime: {
       id: 'test-extension-id',
-      getManifest: jest.fn(() => ({ version: '1.3.2' })),
+		getManifest: jest.fn(() => ({ version: '1.3.3' })),
       getURL: jest.fn((path) => path),
       sendMessage: jest.fn((message) => {
         if (message?.action === 'startCapture') {

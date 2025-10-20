@@ -2,48 +2,19 @@
 
 A single-binary Go implementation of the trunecord (Music to Discord) local client, replacing the Electron version.
 
-## ⚠️ Important Note about Audio Support
+## Audio Support
 
-### Supported Platforms (with Audio)
-The following pre-built binaries include **full audio streaming support**:
-- **Windows (AMD64)**: `trunecord-windows-amd64.zip` (includes required DLL files)
-- **macOS (Intel)**: `trunecord-darwin-amd64`
-- **macOS (Apple Silicon)**: `trunecord-darwin-arm64`
-- **Linux (AMD64)**: `trunecord-linux-amd64`
+The Go client ships with pre-built binaries that bundle native Opus support. Use the matrix below to pick the right download:
 
-### Limited Support (No Audio)
-The following binaries are provided for compatibility but **do not support audio streaming**:
-- **Linux ARM64**: `trunecord-linux-arm64-nocgo`
+| Platform | Binary | Audio Support | Notes |
+| --- | --- | --- | --- |
+| Windows (AMD64) | `trunecord-windows-amd64.zip` | ✅ | Includes required DLLs |
+| macOS (Intel) | `trunecord-darwin-amd64` | ✅ | `chmod +x` before running |
+| macOS (Apple Silicon) | `trunecord-darwin-arm64` | ✅ | `chmod +x` before running |
+| Linux (AMD64) | `trunecord-linux-amd64` | ✅ | Run from terminal |
+| Linux (ARM64) | `trunecord-linux-arm64-nocgo` | ❌ | Build from source with CGO enabled |
 
-### Building from Source
-For platforms without audio support, you must compile from source:
-
-```bash
-# Install opus library first:
-# macOS: brew install opus
-# Ubuntu/Debian: sudo apt-get install libopus-dev
-# Windows: See building instructions below
-
-CGO_ENABLED=1 go build ./cmd/
-```
-
-See the [Building from Source](#building-from-source) section below for detailed instructions.
-
-## ⚠️ Important Note about Audio Support
-
-### Supported Platforms (with Audio)
-The following pre-built binaries include **full audio streaming support**:
-- **Windows (AMD64)**: `trunecord-windows-amd64.zip` (includes required DLL files)
-- **macOS (Intel)**: `trunecord-darwin-amd64.dmg` (double-click to install)
-- **macOS (Apple Silicon)**: `trunecord-darwin-arm64.dmg` (double-click to install)
-- **Linux (AMD64)**: `trunecord-linux-amd64`
-
-### Limited Support (No Audio)
-The following binaries are provided for compatibility but **do not support audio streaming**:
-- **Linux ARM64**: `trunecord-linux-arm64-nocgo`
-
-### Building from Source
-For platforms without audio support, you must compile from source:
+For platforms without bundled audio, compile from source instead:
 
 ```bash
 # Install opus library first:
@@ -69,6 +40,15 @@ See the [Building from Source](#building-from-source) section below for detailed
 - **Discord Integration**: Direct audio streaming to Discord voice channels
 - **Web UI**: Built-in web interface for authentication and settings
 - **Lightweight**: Minimal resource usage compared to Electron
+- **IPv4/IPv6 Aware**: Detects running instances across localhost address families
+- **Version Handshake**: Validates the Chrome extension (expects v1.3.3+) before streaming
+
+## Version Compatibility
+
+- Chrome extension: **v1.3.3**
+- Go client: **v1.3.3** or newer
+
+If versions fall out of sync the client refuses the connection and logs a `versionMismatch` message.
 
 ## Architecture
 
@@ -110,6 +90,14 @@ go-client/
 3. Run the binary: `./trunecord-linux-amd64`
 4. Open http://localhost:48766 in your browser
 5. Follow the setup steps
+
+## Networking Defaults
+
+- Web interface: `http://localhost:48766`
+- WebSocket endpoint for the extension: `ws://127.0.0.1:8765` (also attempts `ws://[::1]:8765`)
+- Authentication API (default): `https://we80ad68l7.execute-api.ap-northeast-1.amazonaws.com/prod`
+
+Override these via environment variables or command line flags as described below.
 
 ## Building from Source
 
