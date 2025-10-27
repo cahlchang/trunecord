@@ -5,16 +5,19 @@ locals {
 
 resource "null_resource" "build_lambda_package" {
   triggers = {
-    package_lock = filesha256("${local.auth_server_dir}/package-lock.json")
-    package_json = filesha256("${local.auth_server_dir}/package.json")
-    index_js     = filesha256("${local.auth_server_dir}/index.js")
-    lambda_js    = filesha256("${local.auth_server_dir}/lambda.js")
-    build_script = filesha256("${local.auth_server_dir}/scripts/build-lambda.sh")
+    source_hash = sha256(join("", [
+      for file in sort(concat(
+        fileset(local.auth_server_dir, "src/**"),
+        fileset(local.auth_server_dir, "scripts/**"),
+        ["index.js", "lambda.js", "package.json", "package-lock.json"]
+      )) : filesha256("${local.auth_server_dir}/${file}")
+    ]))
   }
 
   provisioner "local-exec" {
     interpreter = ["bash", "-lc"]
-    command     = "cd ${local.auth_server_dir} && npm run build:lambda"
+    working_dir = local.auth_server_dir
+    command     = "npm ci && npm run build:lambda"
   }
 }
 

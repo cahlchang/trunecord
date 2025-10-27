@@ -18,6 +18,7 @@
     "ws://localhost/*",
     "ws://127.0.0.1/*",
     "ws://[::1]/*",
+    "https://m0j3mh0nyj.execute-api.ap-northeast-1.amazonaws.com/*",
     "https://music.youtube.com/*",
     "https://open.spotify.com/*",
     "https://music.apple.com/*",

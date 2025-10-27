@@ -21,13 +21,10 @@ function initializeLocalization() {
 
 function compareVersions(a = '', b = '') {
   const sanitize = (value) => (typeof value === 'string' ? value.trim() : '');
-  const parse = (value) => {
-    const parts = sanitize(value).split('.');
-    return parts.map((part) => {
-      const parsed = parseInt(part, 10);
-      return Number.isNaN(parsed) ? 0 : parsed;
-    });
-  };
+  const parse = (value) =>
+    sanitize(value)
+      .split('.')
+      .map((part) => (/^\d+$/.test(part) ? parseInt(part, 10) : 0));
 
   const partsA = parse(a);
   const partsB = parse(b);

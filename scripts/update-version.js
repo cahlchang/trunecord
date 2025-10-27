@@ -21,6 +21,9 @@ function writeJSON(filePath, data) {
 
 function updateFile(filePath, transform) {
   const abs = path.join(ROOT, filePath);
+  if (!fs.existsSync(abs)) {
+    return;
+  }
   const original = fs.readFileSync(abs, 'utf8');
   const updated = transform(original);
   if (updated !== original) {
