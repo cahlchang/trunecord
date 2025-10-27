@@ -1,60 +1,36 @@
+locals {
+  auth_server_dir  = "${path.module}/../auth-server"
+  lambda_build_dir = "${path.module}/../auth-server/dist-lambda"
+}
+
+resource "null_resource" "build_lambda_package" {
+  triggers = {
+    source_hash = sha256(join("", concat(
+      [
+        for file in sort(flatten([
+          tolist(fileset(local.auth_server_dir, "src/**")),
+          tolist(fileset(local.auth_server_dir, "scripts/**")),
+          ["index.js", "lambda.js", "package.json", "package-lock.json"]
+        ])) : filesha256("${local.auth_server_dir}/${file}")
+      ],
+      [filesha256("${path.module}/../VERSION.txt")]
+    )))
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["bash", "-lc"]
+    working_dir = local.auth_server_dir
+    command     = "npm ci && npm run build:lambda"
+  }
+}
+
 # Create deployment package for Lambda
 data "archive_file" "lambda_zip" {
   type        = "zip"
-  source_dir  = "${path.module}/../auth-server"
+  source_dir  = local.lambda_build_dir
   output_path = "${path.module}/lambda_function.zip"
-  
-  excludes = [
-    # Environment and config files
-    ".env",
-    ".env.local",
-    ".env.example",
-    ".gitignore",
-    ".eslintrc.json",
-    ".prettierrc",
-    
-    # Documentation
-    "README.md",
-    "*.md",
-    
-    # Test files and directories
-    "test/**",
-    "tests/**",
-    "**/*.test.js",
-    "**/*.spec.js",
-    "jest.config.js",
-    "coverage/**",
-    "__tests__/**",
-    
-    # Development dependencies and cache
-    ".nyc_output/**",
-    ".vscode/**",
-    ".idea/**",
-    "*.log",
-    "npm-debug.log*",
-    "yarn-debug.log*",
-    "yarn-error.log*",
-    
-    # Git files
-    ".git/**",
-    ".github/**",
-    
-    # Package manager files (we only need node_modules)
-    "package-lock.json",
-    "yarn.lock",
-    "pnpm-lock.yaml",
-    
-    # Temporary and build files
-    "tmp/**",
-    "temp/**",
-    "dist/**",
-    "build/**",
-    "*.tmp",
-    "*.bak",
-    "*.swp",
-    ".DS_Store",
-    "Thumbs.db"
-  ]
+
+  depends_on = [null_resource.build_lambda_package]
 }
 
 # Get current AWS account ID

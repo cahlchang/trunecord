@@ -7,6 +7,7 @@ module.exports = {
     '!**/coverage/**',
     '!jest.config.js'
   ],
+  modulePathIgnorePatterns: ['<rootDir>/dist-lambda'],
   testMatch: [
     '**/test/**/*.test.js'
   ],

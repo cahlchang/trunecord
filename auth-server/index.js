@@ -5,8 +5,102 @@ const jwt = require('jsonwebtoken');
 const axios = require('axios');
 const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
+
+const readVersion = () => {
+  const candidates = [
+    path.resolve(__dirname, 'VERSION.txt'),
+    path.resolve(__dirname, '../VERSION.txt'),
+  ];
+
+  for (const versionPath of candidates) {
+    try {
+      const raw = fs.readFileSync(versionPath, 'utf8').trim();
+      if (/^\d+\.\d+\.\d+$/.test(raw)) {
+        return raw;
+      }
+    } catch (_error) {
+      // try next candidate
+    }
+  }
+  return '1.3.5';
+};
+
+const CURRENT_VERSION = readVersion();
+
+const DEFAULT_VERSION_CONFIG = {
+  goClient: {
+    latestVersion: CURRENT_VERSION,
+    minimumVersion: CURRENT_VERSION,
+    downloadUrl: 'https://github.com/cahlchang/trunecord/releases/latest',
+    releaseNotes: '',
+  },
+  chromeExtension: {
+    latestVersion: CURRENT_VERSION,
+    minimumVersion: CURRENT_VERSION,
+    downloadUrl: 'https://chromewebstore.google.com/detail/trunecord/dhmegdkoembgmlhekieedhkilbnjmjee',
+    releaseNotes: '',
+  },
+};
+
+const sanitizeVersionField = (value, fallback) => {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : fallback;
+};
+
+const buildVersionResponse = () => {
+  const goLatest = sanitizeVersionField(
+    process.env.GO_CLIENT_LATEST_VERSION,
+    DEFAULT_VERSION_CONFIG.goClient.latestVersion
+  );
+  const goMinimum = sanitizeVersionField(
+    process.env.GO_CLIENT_MIN_VERSION,
+    goLatest
+  );
+
+  const extensionLatest = sanitizeVersionField(
+    process.env.EXTENSION_LATEST_VERSION,
+    DEFAULT_VERSION_CONFIG.chromeExtension.latestVersion
+  );
+  const extensionMinimum = sanitizeVersionField(
+    process.env.EXTENSION_MIN_VERSION,
+    extensionLatest
+  );
+
+  return {
+    goClient: {
+      latestVersion: goLatest,
+      minimumVersion: goMinimum,
+      downloadUrl: sanitizeVersionField(
+        process.env.GO_CLIENT_DOWNLOAD_URL,
+        DEFAULT_VERSION_CONFIG.goClient.downloadUrl
+      ),
+      releaseNotes: sanitizeVersionField(
+        process.env.GO_CLIENT_RELEASE_NOTES,
+        DEFAULT_VERSION_CONFIG.goClient.releaseNotes
+      ),
+    },
+    chromeExtension: {
+      latestVersion: extensionLatest,
+      minimumVersion: extensionMinimum,
+      downloadUrl: sanitizeVersionField(
+        process.env.EXTENSION_DOWNLOAD_URL,
+        DEFAULT_VERSION_CONFIG.chromeExtension.downloadUrl
+      ),
+      releaseNotes: sanitizeVersionField(
+        process.env.EXTENSION_RELEASE_NOTES,
+        DEFAULT_VERSION_CONFIG.chromeExtension.releaseNotes
+      ),
+    },
+    lastCheckedAt: new Date().toISOString(),
+  };
+};
 
 // CORS configuration - allow localhost for development
 const corsOptions = {
@@ -19,6 +113,10 @@ const corsOptions = {
         origin.startsWith('https://localhost:') ||
         origin.startsWith('http://127.0.0.1:') ||
         origin.startsWith('https://127.0.0.1:')) {
+      return callback(null, true);
+    }
+
+    if (origin.startsWith('chrome-extension://')) {
       return callback(null, true);
     }
 
@@ -95,6 +193,7 @@ app.get('/', (req, res) => {
     message: 'Music to Discord Auth Server',
     endpoints: {
       health: '/api/health',
+      version: '/api/version',
       auth: '/api/auth',
       callback: '/api/callback',
       verify: '/api/verify'
@@ -105,6 +204,10 @@ app.get('/', (req, res) => {
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
+});
+
+app.get('/api/version', (req, res) => {
+  res.json(buildVersionResponse());
 });
 
 // Auth endpoint - redirects to Discord OAuth

@@ -12,7 +12,7 @@ let connectionStatus, streamingStatus, extensionStatus;
 let authSection, controlSection, authBtn;
 
 // API configuration
-const API_BASE_URL = 'https://we80ad68l7.execute-api.ap-northeast-1.amazonaws.com/prod';
+const API_BASE_URL = 'https://m0j3mh0nyj.execute-api.ap-northeast-1.amazonaws.com/prod';
 const WS_PORT = 8765;
 
 // Initialize when DOM is loaded

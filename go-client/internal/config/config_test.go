@@ -19,7 +19,7 @@ func TestLoad(t *testing.T) {
 				WebSocketPort:   "8765",
 				WebPort:         "48766",
 				DiscordBotToken: "",
-				AuthAPIURL:      "https://we80ad68l7.execute-api.ap-northeast-1.amazonaws.com/prod",
+				AuthAPIURL:      "https://m0j3mh0nyj.execute-api.ap-northeast-1.amazonaws.com/prod",
 			},
 			wantErr: false,
 		},

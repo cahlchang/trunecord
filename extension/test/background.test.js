@@ -1,3 +1,8 @@
+const fs = require('fs');
+const path = require('path');
+
+const VERSION = fs.readFileSync(path.resolve(__dirname, '../../VERSION.txt'), 'utf8').trim();
+
 const createBackground = require('../src/background-core');
 
 const READY_STATE = {
@@ -56,7 +61,7 @@ function createMockAdapter() {
     },
     runtime: {
       id: 'test-extension-id',
-		getManifest: jest.fn(() => ({ version: '1.3.3' })),
+		getManifest: jest.fn(() => ({ version: VERSION })),
       getURL: jest.fn((path) => path),
       sendMessage: jest.fn(() => Promise.resolve({ success: true })),
       addMessageListener: jest.fn((handler) => messageListeners.push(handler)),

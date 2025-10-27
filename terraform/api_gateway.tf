@@ -14,8 +14,8 @@ resource "aws_api_gateway_integration" "lambda_root" {
   http_method = aws_api_gateway_method.proxy_root.http_method
 
   integration_http_method = "POST"
-  type                   = "AWS_PROXY"
-  uri                    = aws_lambda_function.auth_api.invoke_arn
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.auth_api.invoke_arn
 }
 
 # Proxy resource for all paths
@@ -38,8 +38,8 @@ resource "aws_api_gateway_integration" "lambda" {
   http_method = aws_api_gateway_method.proxy.http_method
 
   integration_http_method = "POST"
-  type                   = "AWS_PROXY"
-  uri                    = aws_lambda_function.auth_api.invoke_arn
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.auth_api.invoke_arn
 }
 
 # Enable CORS for root
