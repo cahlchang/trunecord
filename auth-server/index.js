@@ -5,19 +5,42 @@ const jwt = require('jsonwebtoken');
 const axios = require('axios');
 const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 
+const readVersion = () => {
+  const candidates = [
+    path.resolve(__dirname, 'VERSION.txt'),
+    path.resolve(__dirname, '../VERSION.txt'),
+  ];
+
+  for (const versionPath of candidates) {
+    try {
+      const raw = fs.readFileSync(versionPath, 'utf8').trim();
+      if (/^\d+\.\d+\.\d+$/.test(raw)) {
+        return raw;
+      }
+    } catch (_error) {
+      // try next candidate
+    }
+  }
+  return '1.3.5';
+};
+
+const CURRENT_VERSION = readVersion();
+
 const DEFAULT_VERSION_CONFIG = {
   goClient: {
-    latestVersion: '1.3.4',
-    minimumVersion: '1.3.4',
+    latestVersion: CURRENT_VERSION,
+    minimumVersion: CURRENT_VERSION,
     downloadUrl: 'https://github.com/cahlchang/trunecord/releases/latest',
     releaseNotes: '',
   },
   chromeExtension: {
-    latestVersion: '1.3.4',
-    minimumVersion: '1.3.4',
+    latestVersion: CURRENT_VERSION,
+    minimumVersion: CURRENT_VERSION,
     downloadUrl: 'https://chromewebstore.google.com/detail/trunecord/dhmegdkoembgmlhekieedhkilbnjmjee',
     releaseNotes: '',
   },

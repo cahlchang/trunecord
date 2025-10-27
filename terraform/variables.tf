@@ -61,13 +61,13 @@ variable "enable_bot_token_endpoint" {
 variable "go_client_latest_version" {
   description = "Latest version of the Go client distributed to users"
   type        = string
-  default     = "1.3.4"
+  default     = "1.3.5"
 }
 
 variable "go_client_min_version" {
   description = "Minimum supported Go client version before forcing an update"
   type        = string
-  default     = "1.3.4"
+  default     = "1.3.5"
 }
 
 variable "go_client_download_url" {
@@ -85,13 +85,13 @@ variable "go_client_release_notes" {
 variable "extension_latest_version" {
   description = "Latest version of the Chrome extension distributed to users"
   type        = string
-  default     = "1.3.4"
+  default     = "1.3.5"
 }
 
 variable "extension_min_version" {
   description = "Minimum supported Chrome extension version before forcing an update"
   type        = string
-  default     = "1.3.4"
+  default     = "1.3.5"
 }
 
 variable "extension_download_url" {

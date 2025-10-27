@@ -45,7 +45,7 @@ Just click the link above and click "Add to Chrome" - it's that easy!
 5. Click **"Load unpacked"** and select the extracted extension folder
 6. You should see the Trunecord icon appear in your Chrome toolbar
 
-> ℹ️ Ensure the extension reports version **1.3.4** in `chrome://extensions/`. The Go client performs a handshake and will refuse older builds.
+> ℹ️ Ensure the extension reports version **1.3.5** in `chrome://extensions/`. The Go client performs a handshake and will refuse older builds.
 
 ### Step 3: Start the Local Client
 
@@ -71,7 +71,7 @@ Just click the link above and click "Add to Chrome" - it's that easy!
    trunecord-windows-amd64.exe
    ```
 
-> ℹ️ Use the latest release (v1.3.4 or newer) so that the extension and client stay in sync.
+> ℹ️ Use the latest release (v1.3.5 or newer) so that the extension and client stay in sync.
 
 #### Option B: Build from Source (For Developers)
 
@@ -144,8 +144,8 @@ Listening on :8080
 
 ## Version Compatibility
 
-- Chrome extension: **v1.3.4**
-- Local Go client: **v1.3.4** or newer
+- Chrome extension: **v1.3.5**
+- Local Go client: **v1.3.5** or newer
 
 Launching mismatched versions triggers a “version mismatch” warning in the popup and refuses to stream until both components are upgraded.
 

@@ -1,6 +1,6 @@
 {
   "name": "trunecord-extension",
-  "version": "1.3.4",
+  "version": "1.3.5",
   "description": "Chrome extension for trunecord - Stream YouTube Music to Discord",
   "scripts": {
     "test": "jest",

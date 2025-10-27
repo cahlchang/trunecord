@@ -69,8 +69,8 @@ if (fs.existsSync(extPackageLockPath)) {
 // Update Go constants
 updateFile('go-client/internal/constants/constants.go', (content) =>
   content
-    .replace(/ExpectedExtensionVersion\s*=\s*"[0-9]+\.[0-9]+\.[0-9]+"/, `ExpectedExtensionVersion       = "${version}"`)
-    .replace(/ApplicationVersion\s*=\s*"[0-9]+\.[0-9]+\.[0-9]+"/, `ApplicationVersion       = "${version}"`)
+    .replace(/ExpectedExtensionVersion\s*=\s*"[0-9]+\.[0-9]+\.[0-9]+"/, `ExpectedExtensionVersion = "${version}"`)
+    .replace(/ApplicationVersion\s*=\s*"[0-9]+\.[0-9]+\.[0-9]+"/, `ApplicationVersion = "${version}"`)
 );
 
 // Update README references

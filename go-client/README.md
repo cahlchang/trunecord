@@ -41,12 +41,12 @@ See the [Building from Source](#building-from-source) section below for detailed
 - **Web UI**: Built-in web interface for authentication and settings
 - **Lightweight**: Minimal resource usage compared to Electron
 - **IPv4/IPv6 Aware**: Detects running instances across localhost address families
-- **Version Handshake**: Validates the Chrome extension (expects v1.3.4+) before streaming
+- **Version Handshake**: Validates the Chrome extension (expects v1.3.5+) before streaming
 
 ## Version Compatibility
 
-- Chrome extension: **v1.3.4**
-- Go client: **v1.3.4** or newer
+- Chrome extension: **v1.3.5**
+- Go client: **v1.3.5** or newer
 
 If versions fall out of sync the client refuses the connection and logs a `versionMismatch` message.
 

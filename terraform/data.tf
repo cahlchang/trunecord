@@ -5,13 +5,16 @@ locals {
 
 resource "null_resource" "build_lambda_package" {
   triggers = {
-    source_hash = sha256(join("", [
-      for file in sort(concat(
-        fileset(local.auth_server_dir, "src/**"),
-        fileset(local.auth_server_dir, "scripts/**"),
-        ["index.js", "lambda.js", "package.json", "package-lock.json"]
-      )) : filesha256("${local.auth_server_dir}/${file}")
-    ]))
+    source_hash = sha256(join("", concat(
+      [
+        for file in sort(flatten([
+          tolist(fileset(local.auth_server_dir, "src/**")),
+          tolist(fileset(local.auth_server_dir, "scripts/**")),
+          ["index.js", "lambda.js", "package.json", "package-lock.json"]
+        ])) : filesha256("${local.auth_server_dir}/${file}")
+      ],
+      [filesha256("${path.module}/../VERSION.txt")]
+    )))
   }
 
   provisioner "local-exec" {

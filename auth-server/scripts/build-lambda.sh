@@ -12,6 +12,7 @@ cp "${ROOT_DIR}/package.json" "${BUILD_DIR}/"
 cp "${ROOT_DIR}/package-lock.json" "${BUILD_DIR}/"
 cp "${ROOT_DIR}/index.js" "${BUILD_DIR}/"
 cp "${ROOT_DIR}/lambda.js" "${BUILD_DIR}/"
+cp "${ROOT_DIR}/../VERSION.txt" "${BUILD_DIR}/"
 
 pushd "${BUILD_DIR}" > /dev/null
 npm ci --omit=dev
