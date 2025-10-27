@@ -153,6 +153,72 @@ const indexTemplate = `<!DOCTYPE html>
             height: 1rem;
             border-width: 0.15em;
         }
+
+        .version-card {
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+        }
+
+        .version-card .card-header {
+            border-color: rgba(48, 54, 61, 0.6);
+        }
+
+        .component-status {
+            border: 1px solid rgba(88, 101, 242, 0.35);
+            border-radius: 12px;
+            padding: 1.25rem;
+            background: linear-gradient(145deg, rgba(88, 101, 242, 0.08), rgba(13, 17, 23, 0.9));
+            height: 100%;
+            transition: all 0.2s ease;
+        }
+
+        .component-status.status-required {
+            border-color: rgba(237, 66, 69, 0.6);
+            background: linear-gradient(145deg, rgba(237, 66, 69, 0.15), rgba(13, 17, 23, 0.9));
+        }
+
+        .component-status.status-recommended {
+            border-color: rgba(88, 101, 242, 0.6);
+        }
+
+        .component-status:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 16px 30px rgba(0, 0, 0, 0.35);
+        }
+
+        .version-meta {
+            font-size: 0.85rem;
+            color: #9da7b1;
+        }
+
+        .release-notes {
+            font-size: 0.85rem;
+            color: #b1bac5;
+        }
+
+        .btn-update {
+            background: linear-gradient(135deg, #5865f2, #7983ff);
+            color: white;
+            font-weight: 600;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 999px;
+        }
+
+        .btn-update:hover {
+            color: white;
+            box-shadow: 0 12px 24px rgba(88, 101, 242, 0.35);
+            transform: translateY(-1px);
+        }
+
+        .version-error {
+            border: 1px solid rgba(237, 66, 69, 0.5);
+            background-color: rgba(237, 66, 69, 0.1);
+            color: var(--discord-red);
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+        }
     </style>
 </head>
 <body>
@@ -166,6 +232,90 @@ const indexTemplate = `<!DOCTYPE html>
     </div>
 
     <div class="container">
+        {{if .VersionError}}
+            <div class="version-error mb-4">
+                <strong><i class="fas fa-exclamation-triangle me-2"></i>Version check failed</strong>
+                <p class="mb-0 version-meta">{{.VersionError}}</p>
+            </div>
+        {{end}}
+
+        {{if .VersionStatus}}
+            <div class="card version-card mb-4">
+                <div class="card-header bg-transparent border-bottom">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h3 class="mb-0"><i class="fas fa-sync me-2"></i>Update status</h3>
+                        {{if .VersionStatus.HasUpdate}}
+                            <span class="badge bg-warning text-dark"><i class="fas fa-arrow-circle-up me-2"></i>Update available</span>
+                        {{else}}
+                            <span class="badge bg-success"><i class="fas fa-check me-2"></i>Up to date</span>
+                        {{end}}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            {{with .VersionStatus.GoClient}}
+                                <div class="component-status {{if .UpdateRequired}}status-required{{else if .UpdateRecommended}}status-recommended{{end}}">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h4 class="mb-0">{{.Name}}</h4>
+                                        {{if .UpdateRequired}}
+                                            <span class="badge bg-danger">Update required</span>
+                                        {{else if .UpdateRecommended}}
+                                            <span class="badge bg-warning text-dark">Update available</span>
+                                        {{else}}
+                                            <span class="badge bg-success">Up to date</span>
+                                        {{end}}
+                                    </div>
+                                    <p class="version-meta mb-1">Current version: <strong>{{.CurrentVersion}}</strong></p>
+                                    <p class="version-meta mb-1">Latest release: <strong>{{.LatestVersion}}</strong></p>
+                                    {{if .UpdateRequired}}
+                                        <p class="version-meta mb-2">Minimum supported: <strong>{{.MinimumVersion}}</strong></p>
+                                    {{end}}
+                                    {{if .DownloadURL}}
+                                        <a href="{{.DownloadURL}}" target="_blank" rel="noreferrer" class="btn btn-update btn-sm mt-2">
+                                            <i class="fas fa-download me-2"></i>Download update
+                                        </a>
+                                    {{end}}
+                                    {{if .ReleaseNotes}}
+                                        <p class="release-notes mt-3 mb-0">{{.ReleaseNotes}}</p>
+                                    {{end}}
+                                </div>
+                            {{end}}
+                        </div>
+                        <div class="col-md-6">
+                            {{with .VersionStatus.ChromeExtension}}
+                                <div class="component-status {{if .UpdateRequired}}status-required{{else if .UpdateRecommended}}status-recommended{{end}}">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h4 class="mb-0">{{.Name}}</h4>
+                                        {{if .UpdateRequired}}
+                                            <span class="badge bg-danger">Update required</span>
+                                        {{else if .UpdateRecommended}}
+                                            <span class="badge bg-warning text-dark">Update available</span>
+                                        {{else}}
+                                            <span class="badge bg-success">Up to date</span>
+                                        {{end}}
+                                    </div>
+                                    <p class="version-meta mb-1">Client compatible: <strong>{{.CurrentVersion}}</strong></p>
+                                    <p class="version-meta mb-1">Latest published: <strong>{{.LatestVersion}}</strong></p>
+                                    {{if .UpdateRequired}}
+                                        <p class="version-meta mb-2">Minimum supported: <strong>{{.MinimumVersion}}</strong></p>
+                                    {{end}}
+                                    {{if .DownloadURL}}
+                                        <a href="{{.DownloadURL}}" target="_blank" rel="noreferrer" class="btn btn-update btn-sm mt-2">
+                                            <i class="fas fa-external-link-alt me-2"></i>Open extension page
+                                        </a>
+                                    {{end}}
+                                    {{if .ReleaseNotes}}
+                                        <p class="release-notes mt-3 mb-0">{{.ReleaseNotes}}</p>
+                                    {{end}}
+                                </div>
+                            {{end}}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {{end}}
+
         {{if .Error}}
             <div class="alert alert-error alert-dismissible fade show mb-4" role="alert">
                 <i class="fas fa-exclamation-circle me-2"></i>{{.Error}}

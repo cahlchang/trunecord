@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"trunecord/internal/constants"
 )
 
 func TestGetAuthURL(t *testing.T) {
@@ -230,4 +232,61 @@ func TestGetBotToken(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetVersionInfo(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != constants.APIVersionPath {
+				t.Fatalf("unexpected path: %s", r.URL.Path)
+			}
+			if accept := r.Header.Get(constants.AcceptHeader); accept != constants.ContentTypeJSON {
+				t.Fatalf("unexpected accept header: %s", accept)
+			}
+			w.Header().Set("Content-Type", constants.ContentTypeJSON)
+			json.NewEncoder(w).Encode(VersionInfo{
+				GoClient: VersionComponent{
+					LatestVersion:  "2.0.0",
+					MinimumVersion: "1.9.0",
+					DownloadURL:    "https://example.com/go",
+					ReleaseNotes:   "client notes",
+				},
+				ChromeExtension: VersionComponent{
+					LatestVersion:  "3.0.0",
+					MinimumVersion: "2.5.0",
+					DownloadURL:    "https://example.com/ext",
+					ReleaseNotes:   "extension notes",
+				},
+				LastCheckedAt: "2025-01-01T00:00:00Z",
+			})
+		}))
+		defer ts.Close()
+
+		client := NewClient(ts.URL)
+		info, err := client.GetVersionInfo()
+		if err != nil {
+			t.Fatalf("GetVersionInfo() error = %v", err)
+		}
+
+		if info.GoClient.LatestVersion != "2.0.0" || info.GoClient.MinimumVersion != "1.9.0" {
+			t.Fatalf("unexpected go client versions: %+v", info.GoClient)
+		}
+		if info.ChromeExtension.DownloadURL != "https://example.com/ext" {
+			t.Fatalf("unexpected extension download URL: %s", info.ChromeExtension.DownloadURL)
+		}
+	})
+
+	t.Run("api error", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusBadGateway)
+			w.Write([]byte("bad gateway"))
+		}))
+		defer ts.Close()
+
+		client := NewClient(ts.URL)
+		_, err := client.GetVersionInfo()
+		if err == nil {
+			t.Fatalf("expected error, got nil")
+		}
+	})
 }

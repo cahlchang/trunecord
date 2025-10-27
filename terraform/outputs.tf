@@ -22,6 +22,11 @@ output "cloudwatch_log_group" {
   description = "The CloudWatch log group name"
 }
 
+output "aws_account_alias" {
+  value       = try(data.aws_iam_account_alias.current.account_alias, "")
+  description = "Active AWS account alias for this deployment"
+}
+
 # API Gateway ID
 output "api_gateway_id" {
   value       = aws_api_gateway_rest_api.auth_api.id

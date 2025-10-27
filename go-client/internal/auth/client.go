@@ -43,6 +43,19 @@ type BotTokenResponse struct {
 	Warning  string `json:"warning"`
 }
 
+type VersionComponent struct {
+	LatestVersion  string `json:"latestVersion"`
+	MinimumVersion string `json:"minimumVersion"`
+	DownloadURL    string `json:"downloadUrl"`
+	ReleaseNotes   string `json:"releaseNotes"`
+}
+
+type VersionInfo struct {
+	GoClient        VersionComponent `json:"goClient"`
+	ChromeExtension VersionComponent `json:"chromeExtension"`
+	LastCheckedAt   string           `json:"lastCheckedAt"`
+}
+
 func NewClient(baseURL string) *Client {
 	return &Client{
 		BaseURL: baseURL,
@@ -65,7 +78,7 @@ func (c *Client) ParseAuthCallback(callbackURL string) (*TokenData, error) {
 	if strings.TrimSpace(callbackURL) == "" {
 		return nil, fmt.Errorf("callback URL cannot be empty")
 	}
-	
+
 	parsedURL, err := url.Parse(callbackURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse callback URL: %w", err)
@@ -95,7 +108,7 @@ func (c *Client) GetGuilds(token string) ([]Guild, error) {
 	if strings.TrimSpace(token) == "" {
 		return nil, fmt.Errorf("token cannot be empty")
 	}
-	
+
 	guildsURL := fmt.Sprintf("%s/api/guilds", c.BaseURL)
 
 	req, err := http.NewRequest("GET", guildsURL, nil)
@@ -134,12 +147,12 @@ func (c *Client) GetChannels(guildID, token string) ([]Channel, error) {
 	if strings.TrimSpace(token) == "" {
 		return nil, fmt.Errorf("token cannot be empty")
 	}
-	
+
 	// Validate guildID format (should be numeric Discord ID)
 	if !isValidDiscordID(guildID) {
 		return nil, fmt.Errorf("invalid guildID format")
 	}
-	
+
 	// Use url.PathEscape to prevent path traversal attacks
 	channelsURL := fmt.Sprintf("%s/api/guilds/%s/channels", c.BaseURL, url.PathEscape(guildID))
 
@@ -189,7 +202,7 @@ func (c *Client) VerifyToken(token string) (bool, error) {
 	if strings.TrimSpace(token) == "" {
 		return false, fmt.Errorf("token cannot be empty")
 	}
-	
+
 	verifyURL := fmt.Sprintf("%s%s", c.BaseURL, constants.APIVerifyPath)
 
 	req, err := http.NewRequest("GET", verifyURL, nil)
@@ -213,7 +226,7 @@ func (c *Client) GetBotToken(token string) (string, error) {
 	if strings.TrimSpace(token) == "" {
 		return "", fmt.Errorf("token cannot be empty")
 	}
-	
+
 	botTokenURL := fmt.Sprintf("%s%s", c.BaseURL, constants.APIBotTokenPath)
 
 	req, err := http.NewRequest("GET", botTokenURL, nil)
@@ -242,4 +255,33 @@ func (c *Client) GetBotToken(token string) (string, error) {
 	}
 
 	return botTokenResp.BotToken, nil
+}
+
+func (c *Client) GetVersionInfo() (*VersionInfo, error) {
+	versionURL := fmt.Sprintf("%s%s", c.BaseURL, constants.APIVersionPath)
+
+	req, err := http.NewRequest("GET", versionURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set(constants.AcceptHeader, constants.ContentTypeJSON)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var info VersionInfo
+	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &info, nil
 }

@@ -8,6 +8,77 @@ const crypto = require('crypto');
 
 const app = express();
 
+const DEFAULT_VERSION_CONFIG = {
+  goClient: {
+    latestVersion: '1.3.4',
+    minimumVersion: '1.3.4',
+    downloadUrl: 'https://github.com/cahlchang/trunecord/releases/latest',
+    releaseNotes: '',
+  },
+  chromeExtension: {
+    latestVersion: '1.3.4',
+    minimumVersion: '1.3.4',
+    downloadUrl: 'https://chromewebstore.google.com/detail/trunecord/dhmegdkoembgmlhekieedhkilbnjmjee',
+    releaseNotes: '',
+  },
+};
+
+const sanitizeVersionField = (value, fallback) => {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : fallback;
+};
+
+const buildVersionResponse = () => {
+  const goLatest = sanitizeVersionField(
+    process.env.GO_CLIENT_LATEST_VERSION,
+    DEFAULT_VERSION_CONFIG.goClient.latestVersion
+  );
+  const goMinimum = sanitizeVersionField(
+    process.env.GO_CLIENT_MIN_VERSION,
+    goLatest
+  );
+
+  const extensionLatest = sanitizeVersionField(
+    process.env.EXTENSION_LATEST_VERSION,
+    DEFAULT_VERSION_CONFIG.chromeExtension.latestVersion
+  );
+  const extensionMinimum = sanitizeVersionField(
+    process.env.EXTENSION_MIN_VERSION,
+    extensionLatest
+  );
+
+  return {
+    goClient: {
+      latestVersion: goLatest,
+      minimumVersion: goMinimum,
+      downloadUrl: sanitizeVersionField(
+        process.env.GO_CLIENT_DOWNLOAD_URL,
+        DEFAULT_VERSION_CONFIG.goClient.downloadUrl
+      ),
+      releaseNotes: sanitizeVersionField(
+        process.env.GO_CLIENT_RELEASE_NOTES,
+        DEFAULT_VERSION_CONFIG.goClient.releaseNotes
+      ),
+    },
+    chromeExtension: {
+      latestVersion: extensionLatest,
+      minimumVersion: extensionMinimum,
+      downloadUrl: sanitizeVersionField(
+        process.env.EXTENSION_DOWNLOAD_URL,
+        DEFAULT_VERSION_CONFIG.chromeExtension.downloadUrl
+      ),
+      releaseNotes: sanitizeVersionField(
+        process.env.EXTENSION_RELEASE_NOTES,
+        DEFAULT_VERSION_CONFIG.chromeExtension.releaseNotes
+      ),
+    },
+    lastCheckedAt: new Date().toISOString(),
+  };
+};
+
 // CORS configuration - allow localhost for development
 const corsOptions = {
   origin: function (origin, callback) {
@@ -19,6 +90,10 @@ const corsOptions = {
         origin.startsWith('https://localhost:') ||
         origin.startsWith('http://127.0.0.1:') ||
         origin.startsWith('https://127.0.0.1:')) {
+      return callback(null, true);
+    }
+
+    if (origin.startsWith('chrome-extension://')) {
       return callback(null, true);
     }
 
@@ -95,6 +170,7 @@ app.get('/', (req, res) => {
     message: 'Music to Discord Auth Server',
     endpoints: {
       health: '/api/health',
+      version: '/api/version',
       auth: '/api/auth',
       callback: '/api/callback',
       verify: '/api/verify'
@@ -105,6 +181,10 @@ app.get('/', (req, res) => {
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
+});
+
+app.get('/api/version', (req, res) => {
+  res.json(buildVersionResponse());
 });
 
 // Auth endpoint - redirects to Discord OAuth

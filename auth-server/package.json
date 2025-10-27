@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "build:lambda": "npm install --production",
+    "build:lambda": "./scripts/build-lambda.sh",
     "test": "jest",
     "test:watch": "jest --watch"
   },

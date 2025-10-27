@@ -8,7 +8,9 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
+	"sync"
 
 	"trunecord/internal/auth"
 	"trunecord/internal/browser"
@@ -17,14 +19,17 @@ import (
 )
 
 type Server struct {
-	port          string
-	authClient    *auth.Client
-	templates     *template.Template
-	tokenData     *auth.TokenData
-	streamer      DiscordStreamer
-	wsServer      WebSocketServer
-	browserOpener *browser.Opener
-	config        *config.Config
+	port             string
+	authClient       *auth.Client
+	templates        *template.Template
+	tokenData        *auth.TokenData
+	streamer         DiscordStreamer
+	wsServer         WebSocketServer
+	browserOpener    *browser.Opener
+	config           *config.Config
+	versionStatus    *VersionStatus
+	versionStatusMu  sync.RWMutex
+	versionStatusErr string
 }
 
 type DiscordStreamer interface {
@@ -42,14 +47,33 @@ type WebSocketServer interface {
 }
 
 type PageData struct {
-	Title     string
-	AuthURL   string
-	Guilds    []auth.Guild
-	Error     string
-	Success   string
-	Token     string
-	Connected bool
-	Streaming bool
+	Title         string
+	AuthURL       string
+	Guilds        []auth.Guild
+	Error         string
+	Success       string
+	Token         string
+	Connected     bool
+	Streaming     bool
+	VersionStatus *VersionStatus
+	VersionError  string
+}
+
+type ComponentUpdate struct {
+	Name              string `json:"name"`
+	CurrentVersion    string `json:"currentVersion"`
+	LatestVersion     string `json:"latestVersion"`
+	MinimumVersion    string `json:"minimumVersion"`
+	DownloadURL       string `json:"downloadUrl"`
+	ReleaseNotes      string `json:"releaseNotes"`
+	UpdateRequired    bool   `json:"updateRequired"`
+	UpdateRecommended bool   `json:"updateRecommended"`
+}
+
+type VersionStatus struct {
+	GoClient        ComponentUpdate `json:"goClient"`
+	ChromeExtension ComponentUpdate `json:"chromeExtension"`
+	HasUpdate       bool            `json:"hasUpdate"`
 }
 
 func NewServer(port string, authClient *auth.Client, streamer DiscordStreamer, wsServer WebSocketServer, cfg *config.Config) *Server {
@@ -61,6 +85,60 @@ func NewServer(port string, authClient *auth.Client, streamer DiscordStreamer, w
 		browserOpener: browser.NewOpener(),
 		config:        cfg,
 	}
+}
+
+func (s *Server) refreshVersionStatus() error {
+	if s.authClient == nil {
+		return fmt.Errorf("auth client not configured")
+	}
+
+	info, err := s.authClient.GetVersionInfo()
+	if err != nil {
+		s.versionStatusMu.Lock()
+		s.versionStatusErr = err.Error()
+		s.versionStatusMu.Unlock()
+		return err
+	}
+
+	status := &VersionStatus{
+		GoClient:        buildComponentUpdate("Go Client", constants.ApplicationVersion, info.GoClient),
+		ChromeExtension: buildComponentUpdate("Chrome Extension", constants.ExpectedExtensionVersion, info.ChromeExtension),
+	}
+	status.HasUpdate = status.GoClient.UpdateRequired || status.GoClient.UpdateRecommended || status.ChromeExtension.UpdateRequired || status.ChromeExtension.UpdateRecommended
+
+	s.versionStatusMu.Lock()
+	s.versionStatus = status
+	s.versionStatusErr = ""
+	s.versionStatusMu.Unlock()
+	return nil
+}
+
+func (s *Server) ensureVersionStatus() {
+	s.versionStatusMu.RLock()
+	initialized := s.versionStatus != nil
+	s.versionStatusMu.RUnlock()
+	if initialized {
+		return
+	}
+
+	if err := s.refreshVersionStatus(); err != nil {
+		log.Printf("Failed to retrieve version information: %v", err)
+	}
+}
+
+func (s *Server) versionStatusSnapshot() (*VersionStatus, string) {
+	s.versionStatusMu.RLock()
+	defer s.versionStatusMu.RUnlock()
+
+	errMsg := s.versionStatusErr
+	if s.versionStatus == nil {
+		return nil, errMsg
+	}
+
+	copyStatus := *s.versionStatus
+	copyStatus.GoClient = s.versionStatus.GoClient
+	copyStatus.ChromeExtension = s.versionStatus.ChromeExtension
+	return &copyStatus, errMsg
 }
 
 func (s *Server) Start() error {
@@ -84,6 +162,10 @@ func (s *Server) Start() error {
 
 	// Static files
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("web/static/"))))
+
+	if err := s.refreshVersionStatus(); err != nil {
+		log.Printf("Initial version check failed: %v", err)
+	}
 
 	log.Printf("Web server starting on port %s", s.port)
 
@@ -114,6 +196,14 @@ func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 	if s.tokenData != nil {
 		data.Guilds = s.tokenData.Guilds
 		data.Token = s.tokenData.Token
+	}
+
+	s.ensureVersionStatus()
+	if status, errMsg := s.versionStatusSnapshot(); status != nil {
+		data.VersionStatus = status
+		data.VersionError = ""
+	} else if errMsg != "" {
+		data.VersionError = errMsg
 	}
 
 	log.Printf("Rendering home page with %d guilds, token: %v", len(data.Guilds), data.Token != "")
@@ -290,6 +380,7 @@ func (s *Server) handleDisconnect(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
+	s.ensureVersionStatus()
 	// Check WebSocket connection from Chrome extension
 	chromeConnected := false
 	chromeStreaming := false
@@ -308,6 +399,13 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		"authenticated":    s.tokenData != nil,
 		"discordConnected": discordConnected, // Explicit Discord status
 		"wsConnected":      chromeConnected,  // Explicit WebSocket status
+	}
+	status["clientVersion"] = constants.ApplicationVersion
+
+	if versionStatus, errMsg := s.versionStatusSnapshot(); versionStatus != nil {
+		status["updates"] = versionStatus
+	} else if errMsg != "" {
+		status["updateError"] = errMsg
 	}
 
 	if s.tokenData != nil {
@@ -354,6 +452,79 @@ func (s *Server) handleChannels(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", constants.ContentTypeJSON)
 	json.NewEncoder(w).Encode(response)
+}
+
+func buildComponentUpdate(name, current string, remote auth.VersionComponent) ComponentUpdate {
+	latest := strings.TrimSpace(remote.LatestVersion)
+	if latest == "" {
+		latest = current
+	}
+
+	minimum := strings.TrimSpace(remote.MinimumVersion)
+	if minimum == "" {
+		minimum = latest
+	}
+
+	downloadURL := strings.TrimSpace(remote.DownloadURL)
+	releaseNotes := strings.TrimSpace(remote.ReleaseNotes)
+
+	updateRequired := compareVersions(current, minimum) < 0
+	updateRecommended := compareVersions(current, latest) < 0
+
+	return ComponentUpdate{
+		Name:              name,
+		CurrentVersion:    current,
+		LatestVersion:     latest,
+		MinimumVersion:    minimum,
+		DownloadURL:       downloadURL,
+		ReleaseNotes:      releaseNotes,
+		UpdateRequired:    updateRequired,
+		UpdateRecommended: updateRecommended,
+	}
+}
+
+func compareVersions(a, b string) int {
+	parse := func(v string) []int {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			return []int{0}
+		}
+		parts := strings.Split(v, ".")
+		result := make([]int, len(parts))
+		for i, part := range parts {
+			value, err := strconv.Atoi(part)
+			if err != nil {
+				value = 0
+			}
+			result[i] = value
+		}
+		return result
+	}
+
+	pa := parse(a)
+	pb := parse(b)
+	maxLen := len(pa)
+	if len(pb) > maxLen {
+		maxLen = len(pb)
+	}
+
+	for i := 0; i < maxLen; i++ {
+		var ai, bi int
+		if i < len(pa) {
+			ai = pa[i]
+		}
+		if i < len(pb) {
+			bi = pb[i]
+		}
+		if ai < bi {
+			return -1
+		}
+		if ai > bi {
+			return 1
+		}
+	}
+
+	return 0
 }
 
 func (s *Server) getBotToken() string {

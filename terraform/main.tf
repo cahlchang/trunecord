@@ -4,6 +4,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.0"
+    }
   }
 
   # Local backend for now - uncomment below for S3 backend
@@ -15,7 +19,8 @@ terraform {
 }
 
 provider "aws" {
-  region = var.aws_region
+  region  = var.aws_region
+  profile = var.aws_profile != "" ? var.aws_profile : null
 }
 
 # Lambda function
@@ -31,13 +36,21 @@ resource "aws_lambda_function" "auth_api" {
 
   environment {
     variables = {
-      DISCORD_CLIENT_ID        = var.discord_client_id
-      DISCORD_CLIENT_SECRET    = var.discord_client_secret
-      DISCORD_BOT_TOKEN        = var.discord_bot_token
-      REDIRECT_URI             = "https://${aws_api_gateway_rest_api.auth_api.id}.execute-api.${var.aws_region}.amazonaws.com/${var.environment}/api/callback"
-      FRONTEND_URL             = var.frontend_url
-      JWT_SECRET               = var.jwt_secret
+      DISCORD_CLIENT_ID         = var.discord_client_id
+      DISCORD_CLIENT_SECRET     = var.discord_client_secret
+      DISCORD_BOT_TOKEN         = var.discord_bot_token
+      REDIRECT_URI              = "https://${aws_api_gateway_rest_api.auth_api.id}.execute-api.${var.aws_region}.amazonaws.com/${var.environment}/api/callback"
+      FRONTEND_URL              = var.frontend_url
+      JWT_SECRET                = var.jwt_secret
       ENABLE_BOT_TOKEN_ENDPOINT = var.enable_bot_token_endpoint
+      GO_CLIENT_LATEST_VERSION  = var.go_client_latest_version
+      GO_CLIENT_MIN_VERSION     = var.go_client_min_version
+      GO_CLIENT_DOWNLOAD_URL    = var.go_client_download_url
+      GO_CLIENT_RELEASE_NOTES   = var.go_client_release_notes
+      EXTENSION_LATEST_VERSION  = var.extension_latest_version
+      EXTENSION_MIN_VERSION     = var.extension_min_version
+      EXTENSION_DOWNLOAD_URL    = var.extension_download_url
+      EXTENSION_RELEASE_NOTES   = var.extension_release_notes
     }
   }
 

@@ -1,60 +1,30 @@
+locals {
+  auth_server_dir  = "${path.module}/../auth-server"
+  lambda_build_dir = "${path.module}/../auth-server/dist-lambda"
+}
+
+resource "null_resource" "build_lambda_package" {
+  triggers = {
+    package_lock = filesha256("${local.auth_server_dir}/package-lock.json")
+    package_json = filesha256("${local.auth_server_dir}/package.json")
+    index_js     = filesha256("${local.auth_server_dir}/index.js")
+    lambda_js    = filesha256("${local.auth_server_dir}/lambda.js")
+    build_script = filesha256("${local.auth_server_dir}/scripts/build-lambda.sh")
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["bash", "-lc"]
+    command     = "cd ${local.auth_server_dir} && npm run build:lambda"
+  }
+}
+
 # Create deployment package for Lambda
 data "archive_file" "lambda_zip" {
   type        = "zip"
-  source_dir  = "${path.module}/../auth-server"
+  source_dir  = local.lambda_build_dir
   output_path = "${path.module}/lambda_function.zip"
-  
-  excludes = [
-    # Environment and config files
-    ".env",
-    ".env.local",
-    ".env.example",
-    ".gitignore",
-    ".eslintrc.json",
-    ".prettierrc",
-    
-    # Documentation
-    "README.md",
-    "*.md",
-    
-    # Test files and directories
-    "test/**",
-    "tests/**",
-    "**/*.test.js",
-    "**/*.spec.js",
-    "jest.config.js",
-    "coverage/**",
-    "__tests__/**",
-    
-    # Development dependencies and cache
-    ".nyc_output/**",
-    ".vscode/**",
-    ".idea/**",
-    "*.log",
-    "npm-debug.log*",
-    "yarn-debug.log*",
-    "yarn-error.log*",
-    
-    # Git files
-    ".git/**",
-    ".github/**",
-    
-    # Package manager files (we only need node_modules)
-    "package-lock.json",
-    "yarn.lock",
-    "pnpm-lock.yaml",
-    
-    # Temporary and build files
-    "tmp/**",
-    "temp/**",
-    "dist/**",
-    "build/**",
-    "*.tmp",
-    "*.bak",
-    "*.swp",
-    ".DS_Store",
-    "Thumbs.db"
-  ]
+
+  depends_on = [null_resource.build_lambda_package]
 }
 
 # Get current AWS account ID
